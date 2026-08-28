@@ -55,3 +55,17 @@ class AuditRepo(BaseRepository):
         response = query.execute()
         total = response.count if response.count is not None else 0
         return response.data or [], total
+
+    async def reassign_actor(self, from_user_id: UUID, to_user_id: UUID) -> None:
+        """Repoint audit log authorship from one user to another.
+
+        Used when hard-deleting a user so the NOT NULL ``actor_id`` foreign key
+        stays valid while preserving the audit trail.
+
+        Args:
+            from_user_id: The departing user.
+            to_user_id: The user (placeholder) to inherit the audit entries.
+        """
+        self._table().update({"actor_id": str(to_user_id)}).eq(
+            "actor_id", str(from_user_id)
+        ).execute()

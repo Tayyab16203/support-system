@@ -7,6 +7,7 @@ import {
   useCreateProject,
   useUpdateProject,
   useDeleteProject,
+  useProjectTicketCount,
 } from "@/hooks/useProjects";
 import { formatDate } from "@/lib/utils";
 import type { Project, ProjectCreate } from "@/types/project";
@@ -60,6 +61,8 @@ export default function AdminProjectsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const { data: deleteTicketCount, isLoading: countLoading } =
+    useProjectTicketCount(deleteTarget?.id ?? null);
 
   // Non-admins should never reach here (Sidebar hides the link), but guard anyway.
   if (!authLoading && !isAdmin) {
@@ -350,9 +353,25 @@ export default function AdminProjectsPage() {
             <h2 className="text-lg font-semibold text-gray-900">Delete project?</h2>
             <p className="mt-2 text-sm text-gray-600">
               This will permanently delete{" "}
-              <span className="font-medium">{deleteTarget.name}</span> and cascade to
-              its tickets. This action cannot be undone.
+              <span className="font-medium">{deleteTarget.name}</span>. This action
+              cannot be undone.
             </p>
+            {countLoading ? (
+              <p className="mt-3 text-sm text-gray-500">
+                Checking for associated tickets...
+              </p>
+            ) : deleteTicketCount && deleteTicketCount > 0 ? (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Warning: this project has{" "}
+                <span className="font-semibold">{deleteTicketCount}</span> ticket
+                {deleteTicketCount === 1 ? "" : "s"} that will also be permanently
+                deleted.
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-gray-500">
+                This project has no tickets.
+              </p>
+            )}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
@@ -362,10 +381,14 @@ export default function AdminProjectsPage() {
               </button>
               <button
                 onClick={handleDelete}
-                disabled={deleteProject.isPending}
+                disabled={deleteProject.isPending || countLoading}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {deleteProject.isPending ? "Deleting..." : "Delete"}
+                {deleteProject.isPending
+                  ? "Deleting..."
+                  : deleteTicketCount && deleteTicketCount > 0
+                    ? `Delete project & ${deleteTicketCount} ticket${deleteTicketCount === 1 ? "" : "s"}`
+                    : "Delete"}
               </button>
             </div>
           </div>

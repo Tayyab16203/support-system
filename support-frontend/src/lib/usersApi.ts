@@ -32,3 +32,33 @@ export async function updateUserRole(
 ): Promise<UserResponse> {
   return api.patch<UserResponse>(`/admin/users/${userId}/role`, { role });
 }
+
+interface ResetPasswordResponse {
+  data: { id: string; email: string };
+  message: string;
+}
+
+export async function adminResetUserPassword(
+  userId: string
+): Promise<ResetPasswordResponse> {
+  return api.post<ResetPasswordResponse>(`/admin/users/${userId}/reset-password`);
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  return api.delete(`/admin/users/${userId}`);
+}
+
+/** A user eligible to be assigned a ticket (admin-only endpoint). */
+export interface AssignableUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export async function listAssignableUsers(): Promise<AssignableUser[]> {
+  const res = await api.get<{ data: AssignableUser[] }>(
+    "/admin/users/assignable"
+  );
+  return res.data;
+}

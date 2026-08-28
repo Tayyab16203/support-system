@@ -108,6 +108,71 @@ class AuthService:
 
         return self._to_token_response(result)
 
+    async def forgot_password(self, email: str) -> None:
+        """Start the self-service password reset (Cognito emails a code).
+
+        Works for any user, including admins. To avoid leaking which emails
+        are registered, an unknown user is treated as success (no error).
+
+        Args:
+            email: The user's email.
+
+        Raises:
+            IntegrationError: If Cognito fails unexpectedly.
+        """
+        try:
+            await cognito_admin.forgot_password(email)
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code", "")
+            # Don't reveal whether the account exists / is confirmed.
+            if code in ("UserNotFoundException", "InvalidParameterException"):
+                logger.info("cognito_forgot_password_noop", exc_info=exc)
+                return
+            if code == "LimitExceededException":
+                raise IntegrationError(
+                    message="Too many attempts. Please try again later."
+                ) from exc
+            logger.error("cognito_forgot_password_failed", exc_info=exc)
+            raise IntegrationError(
+                message="Could not start password reset. Please try again."
+            ) from exc
+
+    async def confirm_forgot_password(
+        self, email: str, code: str, new_password: str
+    ) -> None:
+        """Complete the password reset with the emailed code and a new password.
+
+        Args:
+            email: The user's email.
+            code: The confirmation code Cognito emailed to the user.
+            new_password: The new permanent password.
+
+        Raises:
+            UnauthorizedError: If the code is wrong/expired or the password is rejected.
+            IntegrationError: If Cognito fails unexpectedly.
+        """
+        try:
+            await cognito_admin.confirm_forgot_password(email, code, new_password)
+        except ClientError as exc:
+            code_name = exc.response.get("Error", {}).get("Code", "")
+            if code_name in (
+                "CodeMismatchException",
+                "ExpiredCodeException",
+                "InvalidPasswordException",
+                "UserNotFoundException",
+            ):
+                raise UnauthorizedError(
+                    message="Invalid code or password. Please try again."
+                ) from exc
+            if code_name == "LimitExceededException":
+                raise IntegrationError(
+                    message="Too many attempts. Please try again later."
+                ) from exc
+            logger.error("cognito_confirm_forgot_password_failed", exc_info=exc)
+            raise IntegrationError(
+                message="Could not reset the password. Please try again."
+            ) from exc
+
     async def logout(self, access_token: str) -> None:
         """Revoke the user's tokens via Cognito global sign-out.
 

@@ -22,6 +22,8 @@ class TicketRepo(BaseRepository):
         priority: Optional[str] = None,
         assigned_to: Optional[UUID] = None,
         created_by: Optional[UUID] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
         order_by: str = "created_at",
         order_desc: bool = True,
     ) -> tuple[list[dict], int]:
@@ -36,6 +38,8 @@ class TicketRepo(BaseRepository):
             priority: Optional priority filter.
             assigned_to: Optional assignee filter.
             created_by: Optional creator filter.
+            date_from: Optional ISO datetime; include tickets created at/after it.
+            date_to: Optional ISO datetime; include tickets created at/before it.
             order_by: Sort column.
             order_desc: Sort direction.
 
@@ -46,7 +50,12 @@ class TicketRepo(BaseRepository):
 
         query = (
             self._table()
-            .select("*, created_by_user:users!tickets_created_by_fkey(id, name, email)", count="exact")
+            .select(
+                "*, "
+                "created_by_user:users!tickets_created_by_fkey(id, name, email), "
+                "assigned_to_user:users!tickets_assigned_to_fkey(id, name, email)",
+                count="exact",
+            )
             .eq("project_id", str(project_id))
         )
 
@@ -60,6 +69,10 @@ class TicketRepo(BaseRepository):
             query = query.eq("assigned_to", str(assigned_to))
         if created_by:
             query = query.eq("created_by", str(created_by))
+        if date_from:
+            query = query.gte("created_at", date_from)
+        if date_to:
+            query = query.lte("created_at", date_to)
 
         query = query.order(order_by, desc=order_desc)
         query = query.range(offset, offset + page_size - 1)
@@ -67,6 +80,26 @@ class TicketRepo(BaseRepository):
         response = query.execute()
         total = response.count if response.count is not None else 0
         return response.data or [], total
+
+    async def set_unassigned(self, ticket_id: UUID) -> dict:
+        """Clear a ticket's assignee (set assigned_to to NULL).
+
+        BaseRepository.update strips None values, so unassigning must be done
+        with an explicit update that writes NULL.
+
+        Args:
+            ticket_id: UUID of the ticket to unassign.
+
+        Returns:
+            The updated ticket record.
+        """
+        response = (
+            self._table()
+            .update({"assigned_to": None})
+            .eq("id", str(ticket_id))
+            .execute()
+        )
+        return response.data[0] if response.data else {}
 
     async def get_with_relations(self, ticket_id: UUID) -> Optional[dict]:
         """Get a ticket with related user data.
@@ -136,6 +169,56 @@ class TicketRepo(BaseRepository):
         response = db_query.execute()
         total = response.count if response.count is not None else 0
         return response.data or [], total
+
+    async def count_active_assignments(self, user_id: UUID) -> int:
+        """Count tickets currently assigned to a user (active work).
+
+        Args:
+            user_id: The user UUID to check.
+
+        Returns:
+            The number of tickets where the user is the current assignee.
+        """
+        response = (
+            self._table()
+            .select("id", count="exact")
+            .eq("assigned_to", str(user_id))
+            .execute()
+        )
+        return response.count or 0
+
+    async def reassign_created_by(self, from_user_id: UUID, to_user_id: UUID) -> None:
+        """Repoint the creator of a user's tickets to another user.
+
+        Used when hard-deleting a user: their created tickets are inherited by
+        the placeholder so the NOT NULL ``created_by`` foreign key stays valid.
+
+        Args:
+            from_user_id: The departing user whose tickets are moved.
+            to_user_id: The user (placeholder) to inherit them.
+        """
+        self._table().update({"created_by": str(to_user_id)}).eq(
+            "created_by", str(from_user_id)
+        ).execute()
+
+    async def count_by_project(self, project_id: UUID) -> int:
+        """Count all tickets belonging to a project.
+
+        Used to warn an admin how many tickets a project delete would cascade.
+
+        Args:
+            project_id: The project UUID.
+
+        Returns:
+            The number of tickets in the project.
+        """
+        response = (
+            self._table()
+            .select("id", count="exact")
+            .eq("project_id", str(project_id))
+            .execute()
+        )
+        return response.count or 0
 
     async def count_by_status(self, project_id: Optional[UUID] = None) -> dict[str, int]:
         """Count tickets grouped by status.

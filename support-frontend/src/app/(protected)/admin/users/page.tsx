@@ -2,14 +2,69 @@
 
 import { useState } from "react";
 import { useAuth } from "@/providers/AuthProvider";
-import { useUsers, useCreateUser } from "@/hooks/useUsers";
+import {
+  useUsers,
+  useCreateUser,
+  useAdminResetPassword,
+  useDeleteUser,
+} from "@/hooks/useUsers";
 import { formatDate } from "@/lib/utils";
 import type { UserRole } from "@/types/user";
 
 export default function AdminUsersPage() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, profile } = useAuth();
   const { data, isLoading, error } = useUsers();
   const createUser = useCreateUser();
+  const resetPassword = useAdminResetPassword();
+  const deleteUser = useDeleteUser();
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleResetPassword(userId: string, userEmail: string) {
+    const confirmed = window.confirm(
+      `Send a password reset code to ${userEmail}? They will receive an email with a code to set a new password.`
+    );
+    if (!confirmed) return;
+
+    setResettingId(userId);
+    setFormError(null);
+    setSuccess(null);
+    try {
+      await resetPassword.mutateAsync(userId);
+      setSuccess(`A password reset code was emailed to ${userEmail}.`);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Failed to reset password";
+      setFormError(message);
+    } finally {
+      setResettingId(null);
+    }
+  }
+
+  async function handleDelete(userId: string, userEmail: string) {
+    const confirmed = window.confirm(
+      `Permanently delete ${userEmail}? This removes their account and cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(userId);
+    setFormError(null);
+    setSuccess(null);
+    try {
+      await deleteUser.mutateAsync(userId);
+      setSuccess(`User ${userEmail} was deleted.`);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Failed to delete user";
+      setFormError(message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -67,6 +122,12 @@ export default function AdminUsersPage() {
       {success && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
           {success}
+        </div>
+      )}
+
+      {formError && !showForm && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {formError}
         </div>
       )}
 
@@ -140,6 +201,7 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Email</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Role</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Created</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -159,6 +221,26 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{formatDate(u.created_at)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleResetPassword(u.id, u.email)}
+                        disabled={resettingId === u.id}
+                        className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {resettingId === u.id ? "Sending..." : "Reset Password"}
+                      </button>
+                      {u.id !== profile?.id && (
+                        <button
+                          onClick={() => handleDelete(u.id, u.email)}
+                          disabled={deletingId === u.id}
+                          className="rounded-lg border border-red-300 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingId === u.id ? "Deleting..." : "Delete"}
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -20,6 +20,20 @@ class NewPasswordRequest(BaseModel):
     session: str = Field(min_length=1)
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Starts the self-service password reset: Cognito emails a code."""
+
+    email: EmailStr
+
+
+class ConfirmForgotPasswordRequest(BaseModel):
+    """Completes the reset with the emailed code and a new password."""
+
+    email: EmailStr
+    code: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+
+
 class LogoutRequest(BaseModel):
     """Logout payload carrying the access token to revoke."""
 

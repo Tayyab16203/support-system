@@ -37,6 +37,12 @@ interface AuthContextType {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
   completeNewPassword: (newPassword: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  confirmForgotPassword: (
+    email: string,
+    code: string,
+    newPassword: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => string | null;
 }
@@ -125,6 +131,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await loadProfile();
   }
 
+  async function forgotPassword(email: string): Promise<void> {
+    // Backend always responds success (avoids leaking which emails exist).
+    await api.post("/auth/forgot-password", { email });
+  }
+
+  async function confirmForgotPassword(
+    email: string,
+    code: string,
+    newPassword: string
+  ): Promise<void> {
+    await api.post("/auth/confirm-forgot-password", {
+      email,
+      code,
+      new_password: newPassword,
+    });
+  }
+
   async function logout(): Promise<void> {
     const token = getAccessToken();
     if (token) {
@@ -148,6 +171,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAdmin: profile?.role === "admin",
         login,
         completeNewPassword,
+        forgotPassword,
+        confirmForgotPassword,
         logout,
         getAccessToken,
       }}

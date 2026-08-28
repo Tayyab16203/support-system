@@ -13,6 +13,7 @@ from app.db.repositories.attachment_repo import AttachmentRepo
 from app.db.repositories.ticket_repo import TicketRepo
 from app.integrations.aws.s3 import s3_client
 from app.schemas.upload import ALLOWED_CONTENT_TYPES, MAX_FILE_SIZE
+from app.services.activity_service import ActivityService
 
 logger = get_logger(__name__)
 
@@ -45,6 +46,7 @@ class UploadService:
     def __init__(self) -> None:
         self.repo = AttachmentRepo()
         self.ticket_repo = TicketRepo()
+        self.activity = ActivityService()
 
     @staticmethod
     def _validate_file(content_type: str, file_size: int) -> None:
@@ -147,6 +149,18 @@ class UploadService:
             extra={"resource": {"attachment_id": record.get("id"), "ticket_id": str(ticket_id)}},
         )
 
+        await self.activity.log_activity(
+            ticket_id=ticket_id,
+            actor_id=user_id,
+            action_type="file_uploaded",
+            new_value={
+                "attachment_id": record.get("id"),
+                "file_name": file_name,
+                "content_type": content_type,
+                "file_size": file_size,
+            },
+        )
+
         record["download_url"] = await s3_client.generate_presigned_download_url(
             s3_key
         )
@@ -198,3 +212,15 @@ class UploadService:
             "attachment_deleted",
             extra={"resource": {"attachment_id": str(attachment_id)}},
         )
+
+        ticket_id = attachment.get("ticket_id")
+        if ticket_id:
+            await self.activity.log_activity(
+                ticket_id=UUID(str(ticket_id)),
+                actor_id=UUID(str(user["id"])),
+                action_type="file_deleted",
+                old_value={
+                    "attachment_id": str(attachment_id),
+                    "file_name": attachment.get("file_name"),
+                },
+            )

@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useDeleteTicket, useTicket } from "@/hooks/useTickets";
+import { AssigneeControl } from "@/components/tickets/AssigneeControl";
 import { AttachmentList } from "@/components/tickets/AttachmentList";
 import { FileUpload } from "@/components/tickets/FileUpload";
+import { TicketComments } from "@/components/tickets/TicketComments";
+import { TicketTimeline } from "@/components/tickets/TicketTimeline";
 import { formatDateTime, formatStatus } from "@/lib/utils";
 import type { Priority, TicketStatus } from "@/types/ticket";
 
@@ -74,8 +77,10 @@ export default function TicketDetailPage() {
     );
   }
 
+  const creatorName = ticket.created_by_user?.name ?? "Unknown";
+
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <button
@@ -85,6 +90,11 @@ export default function TicketDetailPage() {
             ← Back to tickets
           </button>
           <h1 className="text-2xl font-bold text-gray-900">{ticket.title}</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Created by{" "}
+            <span className="font-medium text-gray-700">{creatorName}</span> ·{" "}
+            {formatDateTime(ticket.created_at)}
+          </p>
         </div>
         <button
           onClick={() => setShowDelete(true)}
@@ -94,74 +104,88 @@ export default function TicketDetailPage() {
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge
-          label={formatStatus(ticket.status)}
-          className={STATUS_STYLES[ticket.status]}
-        />
-        <Badge
-          label={formatStatus(ticket.priority)}
-          className={PRIORITY_STYLES[ticket.priority]}
-        />
-        <Badge
-          label={formatStatus(ticket.type)}
-          className="bg-gray-100 text-gray-600"
-        />
-        {ticket.jira_key && (
-          <Badge
-            label={ticket.jira_key}
-            className="bg-indigo-100 text-indigo-700"
-          />
-        )}
+      {/* Two-column layout: ticket details on the left, activity timeline on the right. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Left / main column */}
+        <div className="space-y-6 lg:col-span-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              label={formatStatus(ticket.status)}
+              className={STATUS_STYLES[ticket.status]}
+            />
+            <Badge
+              label={formatStatus(ticket.priority)}
+              className={PRIORITY_STYLES[ticket.priority]}
+            />
+            <Badge
+              label={formatStatus(ticket.type)}
+              className="bg-gray-100 text-gray-600"
+            />
+            {ticket.jira_key && (
+              <Badge
+                label={ticket.jira_key}
+                className="bg-indigo-100 text-indigo-700"
+              />
+            )}
+          </div>
+
+          <div className="rounded-lg border bg-white p-6">
+            <h2 className="text-sm font-semibold text-gray-500">Description</h2>
+            <p className="mt-2 whitespace-pre-wrap text-gray-800">
+              {ticket.description}
+            </p>
+          </div>
+
+          <dl className="grid grid-cols-1 gap-4 rounded-lg border bg-white p-6 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">
+                Created by
+              </dt>
+              <dd className="mt-1 text-sm text-gray-800">{creatorName}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">
+                Assigned to
+              </dt>
+              <dd className="mt-1">
+                <AssigneeControl ticket={ticket} />
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">
+                Created
+              </dt>
+              <dd className="mt-1 text-sm text-gray-800">
+                {formatDateTime(ticket.created_at)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">
+                Last updated
+              </dt>
+              <dd className="mt-1 text-sm text-gray-800">
+                {formatDateTime(ticket.updated_at)}
+              </dd>
+            </div>
+          </dl>
+
+          <div className="space-y-4 rounded-lg border bg-white p-6">
+            <h2 className="text-sm font-semibold text-gray-500">Attachments</h2>
+            <FileUpload ticketId={ticket.id} />
+            <AttachmentList ticketId={ticket.id} />
+          </div>
+        </div>
+
+        {/* Right column: activity timeline (events only) */}
+        <div className="lg:col-span-1">
+          <div className="lg:sticky lg:top-6">
+            <TicketTimeline ticketId={ticket.id} />
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-lg border bg-white p-6">
-        <h2 className="text-sm font-semibold text-gray-500">Description</h2>
-        <p className="mt-2 whitespace-pre-wrap text-gray-800">
-          {ticket.description}
-        </p>
-      </div>
-
-      <dl className="grid grid-cols-1 gap-4 rounded-lg border bg-white p-6 sm:grid-cols-2">
-        <div>
-          <dt className="text-xs font-medium uppercase text-gray-500">
-            Created by
-          </dt>
-          <dd className="mt-1 text-sm text-gray-800">
-            {ticket.created_by?.name ?? "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium uppercase text-gray-500">
-            Assigned to
-          </dt>
-          <dd className="mt-1 text-sm text-gray-800">
-            {ticket.assigned_to?.name ?? "Unassigned"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium uppercase text-gray-500">
-            Created
-          </dt>
-          <dd className="mt-1 text-sm text-gray-800">
-            {formatDateTime(ticket.created_at)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium uppercase text-gray-500">
-            Last updated
-          </dt>
-          <dd className="mt-1 text-sm text-gray-800">
-            {formatDateTime(ticket.updated_at)}
-          </dd>
-        </div>
-      </dl>
-
-      <div className="space-y-4 rounded-lg border bg-white p-6">
-        <h2 className="text-sm font-semibold text-gray-500">Attachments</h2>
-        <FileUpload ticketId={ticket.id} />
-        <AttachmentList ticketId={ticket.id} />
-      </div>
+      {/* Comments — a separate section at the bottom of the page. */}
+      <TicketComments ticketId={ticket.id} />
 
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

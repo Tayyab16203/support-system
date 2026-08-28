@@ -31,6 +31,20 @@ class AttachmentRepo(BaseRepository):
         )
         return response.data or []
 
+    async def reassign_uploader(self, from_user_id: UUID, to_user_id: UUID) -> None:
+        """Repoint attachment ownership from one user to another.
+
+        Used when hard-deleting a user so the NOT NULL ``uploaded_by`` foreign
+        key stays valid while preserving the attachment records.
+
+        Args:
+            from_user_id: The departing user.
+            to_user_id: The user (placeholder) to inherit the attachments.
+        """
+        self._table().update({"uploaded_by": str(to_user_id)}).eq(
+            "uploaded_by", str(from_user_id)
+        ).execute()
+
     async def get_with_relations(self, attachment_id: UUID) -> Optional[dict]:
         """Get a single attachment with uploader info.
 
