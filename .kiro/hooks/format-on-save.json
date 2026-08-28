@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Format TypeScript on Save",
+      "trigger": "PostFileSave",
+      "description": "Runs Prettier to format TypeScript/TSX files on save",
+      "matcher": "\\.(ts|tsx|css|json)$",
+      "action": {
+        "type": "command",
+        "command": "npx prettier --write",
+        "timeout": 15
+      }
+    }
+  ]
+}

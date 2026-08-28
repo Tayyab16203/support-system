@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Verify Coding Conventions",
+      "trigger": "PostFileCreate",
+      "description": "Reminds to follow project conventions when creating new files",
+      "matcher": "\\.(ts|tsx|py)$",
+      "action": {
+        "type": "agent",
+        "prompt": "A new code file was created. Verify it follows the project conventions: For Python files - ensure async functions have type hints, follow layered architecture (endpoint → service → repository), and use proper naming (snake_case files, PascalCase classes). For TypeScript files - ensure proper imports with @/ prefix, named exports for components, TailwindCSS for styling, and proper interface definitions for props."
+      }
+    }
+  ]
+}

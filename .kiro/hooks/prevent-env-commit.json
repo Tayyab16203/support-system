@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Prevent .env File Commits",
+      "trigger": "PreToolUse",
+      "description": "Blocks write operations to .env files that might contain secrets, prompting for confirmation",
+      "matcher": "fs_write|str_replace|fs_append",
+      "action": {
+        "type": "agent",
+        "prompt": "Before writing to any file, check if the file path contains '.env' (but NOT '.env.example' or '.env.local.example'). If it's an actual .env file with real secrets/values, warn that secrets should not be committed and verify the write is intentional. Only block if the content appears to contain real API keys, passwords, or tokens (not placeholder values)."
+      }
+    }
+  ]
+}

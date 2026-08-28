@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Lint Python on Save",
+      "trigger": "PostFileSave",
+      "description": "Runs Ruff linter and formatter for Python files when saved",
+      "matcher": "\\.py$",
+      "action": {
+        "type": "command",
+        "command": "ruff check --fix . && ruff format .",
+        "timeout": 30
+      }
+    }
+  ]
+}
