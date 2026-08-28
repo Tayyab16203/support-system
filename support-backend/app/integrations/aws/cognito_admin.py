@@ -78,5 +78,60 @@ class CognitoAdmin:
             Permanent=True,
         )
 
+    async def initiate_auth(self, email: str, password: str) -> dict:
+        """Authenticate a user with email + password (server-side).
+
+        Uses the ADMIN_USER_PASSWORD_AUTH flow so the backend performs the
+        Cognito call directly; the frontend never talks to Cognito.
+
+        Args:
+            email: The user's email (username).
+            password: The user's password.
+
+        Returns:
+            The raw Cognito response. On success it contains
+            ``AuthenticationResult`` with tokens; if a challenge is required
+            (e.g. NEW_PASSWORD_REQUIRED) it contains ``ChallengeName`` and
+            ``Session`` instead.
+        """
+        return self.client.admin_initiate_auth(
+            UserPoolId=self.user_pool_id,
+            ClientId=settings.cognito_app_client_id,
+            AuthFlow="ADMIN_USER_PASSWORD_AUTH",
+            AuthParameters={"USERNAME": email, "PASSWORD": password},
+        )
+
+    async def respond_to_new_password_challenge(
+        self, email: str, new_password: str, session: str
+    ) -> dict:
+        """Complete the NEW_PASSWORD_REQUIRED challenge.
+
+        Args:
+            email: The user's email (username).
+            new_password: The new permanent password.
+            session: The challenge session returned by ``initiate_auth``.
+
+        Returns:
+            The raw Cognito response, containing ``AuthenticationResult``.
+        """
+        return self.client.admin_respond_to_auth_challenge(
+            UserPoolId=self.user_pool_id,
+            ClientId=settings.cognito_app_client_id,
+            ChallengeName="NEW_PASSWORD_REQUIRED",
+            Session=session,
+            ChallengeResponses={
+                "USERNAME": email,
+                "NEW_PASSWORD": new_password,
+            },
+        )
+
+    async def global_sign_out(self, access_token: str) -> None:
+        """Sign a user out of all sessions by revoking their tokens.
+
+        Args:
+            access_token: The user's current access token.
+        """
+        self.client.global_sign_out(AccessToken=access_token)
+
 
 cognito_admin = CognitoAdmin()

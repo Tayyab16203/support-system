@@ -41,3 +41,16 @@ export function capitalize(str: string): string {
 export function formatStatus(status: string): string {
   return status.split("_").map(capitalize).join(" ");
 }
+
+/** Format a byte count into a human-readable size (e.g. 245000 -> "239.3 KB") */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let size = bytes / 1024;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
+}

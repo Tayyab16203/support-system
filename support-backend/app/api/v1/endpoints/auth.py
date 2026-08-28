@@ -5,10 +5,46 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from app.dependencies import get_current_user
+from app.schemas.auth import (
+    LoginRequest,
+    LogoutRequest,
+    NewPasswordRequest,
+)
 from app.schemas.user import UserUpdate
+from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 
 router = APIRouter()
+
+
+@router.post("/login")
+async def login(payload: LoginRequest) -> dict:
+    """Authenticate with email + password (server-side, proxied to Cognito).
+
+    Returns tokens on success, or a challenge (e.g. new password required)
+    that the client completes via /auth/new-password.
+    """
+    service = AuthService()
+    result = await service.login(payload.email, payload.password)
+    return {"data": result.model_dump(), "message": "Success"}
+
+
+@router.post("/new-password")
+async def set_new_password(payload: NewPasswordRequest) -> dict:
+    """Complete a NEW_PASSWORD_REQUIRED challenge and return tokens."""
+    service = AuthService()
+    result = await service.respond_new_password(
+        payload.email, payload.new_password, payload.session
+    )
+    return {"data": result.model_dump(), "message": "Success"}
+
+
+@router.post("/logout")
+async def logout(payload: LogoutRequest) -> dict:
+    """Revoke the current session's tokens via Cognito global sign-out."""
+    service = AuthService()
+    await service.logout(payload.access_token)
+    return {"message": "Logged out"}
 
 
 @router.post("/me")
