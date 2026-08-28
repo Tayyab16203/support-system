@@ -33,6 +33,39 @@ class BaseRepository:
         response = self._table().insert(data).execute()
         return response.data[0] if response.data else {}
 
+    async def create_returning(
+        self, data: dict[str, Any], lookup_field: str
+    ) -> dict:
+        """Create a record and reliably return the persisted row.
+
+        Some PostgREST/supabase-py versions (or RLS configurations) return an
+        empty body from ``insert``. When that happens, re-fetch the row using a
+        unique field so callers always receive the full record.
+
+        Args:
+            data: Dictionary of column values to insert.
+            lookup_field: A unique column present in ``data`` used to re-fetch.
+
+        Returns:
+            The created record as a dictionary (empty dict if it cannot be found).
+        """
+        response = self._table().insert(data).execute()
+        if response.data:
+            return response.data[0]
+
+        lookup_value = data.get(lookup_field)
+        if lookup_value is None:
+            return {}
+
+        refetch = (
+            self._table()
+            .select("*")
+            .eq(lookup_field, lookup_value)
+            .limit(1)
+            .execute()
+        )
+        return refetch.data[0] if refetch.data else {}
+
     async def get_by_id(self, record_id: UUID) -> Optional[dict]:
         """Get a single record by ID.
 
