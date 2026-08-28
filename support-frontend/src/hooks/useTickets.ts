@@ -1,15 +1,70 @@
 /**
  * Ticket data hooks using React Query.
- *
- * TODO: Step 5 - Implement with real API calls.
  */
 
-export function useTickets() {
-  // TODO: Implement with useQuery
-  return { tickets: [], isLoading: false, error: null };
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createTicket,
+  deleteTicket,
+  getTicket,
+  listTickets,
+  updateTicket,
+  type TicketFilters,
+} from "@/lib/ticketsApi";
+import { useProjectContext } from "@/providers/ProjectProvider";
+import type { TicketCreate, TicketUpdate } from "@/types/ticket";
+
+export function useTickets(filters: TicketFilters = {}) {
+  const { selectedProjectId } = useProjectContext();
+  return useQuery({
+    queryKey: ["tickets", selectedProjectId, filters],
+    queryFn: () => listTickets(filters),
+    enabled: Boolean(selectedProjectId),
+  });
 }
 
-export function useTicket(_id: string) {
-  // TODO: Implement with useQuery
-  return { ticket: null, isLoading: false, error: null };
+export function useTicket(ticketId: string | undefined) {
+  const { selectedProjectId } = useProjectContext();
+  return useQuery({
+    queryKey: ["ticket", selectedProjectId, ticketId],
+    queryFn: () => getTicket(ticketId as string),
+    enabled: Boolean(ticketId) && Boolean(selectedProjectId),
+  });
+}
+
+export function useCreateTicket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: TicketCreate) => createTicket(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+  });
+}
+
+export function useUpdateTicket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      payload,
+    }: {
+      ticketId: string;
+      payload: TicketUpdate;
+    }) => updateTicket(ticketId, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      void queryClient.invalidateQueries({ queryKey: ["ticket"] });
+    },
+  });
+}
+
+export function useDeleteTicket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ticketId: string) => deleteTicket(ticketId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+  });
 }

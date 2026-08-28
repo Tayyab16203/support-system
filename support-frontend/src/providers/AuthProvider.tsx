@@ -4,25 +4,17 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import {
-  signIn,
-  signOut,
-  confirmSignIn,
-  getCurrentUser,
-  fetchAuthSession,
-} from "aws-amplify/auth";
-import { configureAmplify } from "@/lib/cognito";
 import { api } from "@/lib/api";
-
-configureAmplify();
-
-interface AuthUser {
-  username: string;
-  userId: string;
-}
+import {
+  clearTokens,
+  getAccessToken,
+  storeTokens,
+  type AuthTokens,
+} from "@/lib/authTokens";
 
 /** The user's profile record from our backend (includes role). */
 interface UserProfile {
@@ -39,7 +31,6 @@ interface LoginResult {
 }
 
 interface AuthContextType {
-  user: AuthUser | null;
   profile: UserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -47,7 +38,13 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<LoginResult>;
   completeNewPassword: (newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
-  getAccessToken: () => Promise<string | null>;
+  getAccessToken: () => string | null;
+}
+
+/** Shape of the backend /auth responses. */
+interface LoginResponseData extends Partial<AuthTokens> {
+  challenge?: string;
+  session?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,32 +54,33 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Holds the pending NEW_PASSWORD_REQUIRED challenge between login() and
+  // completeNewPassword() so the caller keeps the same simple interface.
+  const pendingChallenge = useRef<{ email: string; session: string } | null>(
+    null
+  );
+
   useEffect(() => {
-    // Resolve the session once on mount.
-    void refreshUser();
+    void loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadProfile(): Promise<void> {
+    // No token means no session — skip the profile call entirely.
+    if (!getAccessToken()) {
+      setProfile(null);
+      setIsLoading(false);
+      return;
+    }
     try {
       const res = await api.post<{ data: UserProfile }>("/auth/me");
       setProfile(res.data);
     } catch {
-      setProfile(null);
-    }
-  }
-
-  async function refreshUser(): Promise<void> {
-    try {
-      const current = await getCurrentUser();
-      setUser({ username: current.username, userId: current.userId });
-      await loadProfile();
-    } catch {
-      setUser(null);
+      // Token invalid/expired — treat as logged out.
+      clearTokens();
       setProfile(null);
     } finally {
       setIsLoading(false);
@@ -90,44 +88,63 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   async function login(email: string, password: string): Promise<LoginResult> {
-    const result = await signIn({ username: email, password });
-    if (
-      result.nextStep?.signInStep ===
-      "CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED"
-    ) {
+    const res = await api.post<{ data: LoginResponseData }>("/auth/login", {
+      email,
+      password,
+    });
+    const data = res.data;
+
+    if (data.challenge === "NEW_PASSWORD_REQUIRED" && data.session) {
+      pendingChallenge.current = { email, session: data.session };
       return { newPasswordRequired: true };
     }
-    await refreshUser();
+
+    if (data.access_token && data.id_token) {
+      storeTokens({
+        access_token: data.access_token,
+        id_token: data.id_token,
+        refresh_token: data.refresh_token,
+      });
+      await loadProfile();
+    }
     return { newPasswordRequired: false };
   }
 
   async function completeNewPassword(newPassword: string): Promise<void> {
-    await confirmSignIn({ challengeResponse: newPassword });
-    await refreshUser();
+    const challenge = pendingChallenge.current;
+    if (!challenge) {
+      throw new Error("No pending password challenge. Please log in again.");
+    }
+    const res = await api.post<{ data: AuthTokens }>("/auth/new-password", {
+      email: challenge.email,
+      new_password: newPassword,
+      session: challenge.session,
+    });
+    storeTokens(res.data);
+    pendingChallenge.current = null;
+    await loadProfile();
   }
 
   async function logout(): Promise<void> {
-    await signOut();
-    setUser(null);
-    setProfile(null);
-  }
-
-  async function getAccessToken(): Promise<string | null> {
-    try {
-      const session = await fetchAuthSession();
-      return session.tokens?.accessToken?.toString() ?? null;
-    } catch {
-      return null;
+    const token = getAccessToken();
+    if (token) {
+      // Best-effort server-side revocation; ignore failures.
+      try {
+        await api.post("/auth/logout", { access_token: token });
+      } catch {
+        // ignore
+      }
     }
+    clearTokens();
+    setProfile(null);
   }
 
   return (
     <AuthContext.Provider
       value={{
-        user,
         profile,
         isLoading,
-        isAuthenticated: !!user,
+        isAuthenticated: !!profile,
         isAdmin: profile?.role === "admin",
         login,
         completeNewPassword,

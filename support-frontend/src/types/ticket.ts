@@ -45,3 +45,15 @@ export interface UserSummary {
   name: string;
   email: string;
 }
+
+export interface Attachment {
+  id: string;
+  ticket_id: string;
+  file_name: string;
+  s3_key: string;
+  content_type: string;
+  file_size: number;
+  download_url: string | null;
+  uploaded_by_user?: UserSummary | null;
+  uploaded_at: string;
+}
