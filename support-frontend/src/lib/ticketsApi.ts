@@ -26,6 +26,13 @@ export interface TicketResponse {
   message: string;
 }
 
+export type TicketSortField =
+  | "created_at"
+  | "updated_at"
+  | "priority"
+  | "status"
+  | "title";
+
 export interface TicketFilters {
   page?: number;
   pageSize?: number;
@@ -34,7 +41,11 @@ export interface TicketFilters {
   priority?: Priority;
   assignedTo?: string;
   createdBy?: string;
-  sortBy?: "created_at" | "updated_at" | "priority" | "status";
+  /** ISO datetime lower bound on created_at. */
+  dateFrom?: string;
+  /** ISO datetime upper bound on created_at. */
+  dateTo?: string;
+  sortBy?: TicketSortField;
   sortOrder?: "asc" | "desc";
 }
 
@@ -50,6 +61,8 @@ export async function listTickets(
   if (filters.priority) params.priority = filters.priority;
   if (filters.assignedTo) params.assigned_to = filters.assignedTo;
   if (filters.createdBy) params.created_by = filters.createdBy;
+  if (filters.dateFrom) params.date_from = filters.dateFrom;
+  if (filters.dateTo) params.date_to = filters.dateTo;
   if (filters.sortBy) params.sort_by = filters.sortBy;
   if (filters.sortOrder) params.sort_order = filters.sortOrder;
 
@@ -75,4 +88,53 @@ export async function updateTicket(
 
 export async function deleteTicket(ticketId: string): Promise<void> {
   return api.delete(`/tickets/${ticketId}`);
+}
+
+/** A single ticket that failed within a bulk operation. */
+export interface BulkFailure {
+  ticket_id: string;
+  reason: string;
+}
+
+/** Result summary returned by every bulk operation. */
+export interface BulkResult {
+  success_count: number;
+  failure_count: number;
+  failures: BulkFailure[];
+}
+
+interface BulkResponse {
+  data: BulkResult;
+}
+
+/** Change the status of multiple tickets in the current project. */
+export async function bulkStatusChange(
+  ticketIds: string[],
+  status: TicketStatus
+): Promise<BulkResult> {
+  const res = await api.post<BulkResponse>("/tickets/bulk/status", {
+    ticket_ids: ticketIds,
+    status,
+  });
+  return res.data;
+}
+
+/** Assign multiple tickets to a user (admin only). */
+export async function bulkAssign(
+  ticketIds: string[],
+  assignedTo: string
+): Promise<BulkResult> {
+  const res = await api.post<BulkResponse>("/tickets/bulk/assign", {
+    ticket_ids: ticketIds,
+    assigned_to: assignedTo,
+  });
+  return res.data;
+}
+
+/** Delete multiple tickets (admin only). */
+export async function bulkDelete(ticketIds: string[]): Promise<BulkResult> {
+  const res = await api.post<BulkResponse>("/tickets/bulk/delete", {
+    ticket_ids: ticketIds,
+  });
+  return res.data;
 }

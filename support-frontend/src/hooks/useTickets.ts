@@ -4,6 +4,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  bulkAssign,
+  bulkDelete,
+  bulkStatusChange,
   createTicket,
   deleteTicket,
   getTicket,
@@ -12,7 +15,7 @@ import {
   type TicketFilters,
 } from "@/lib/ticketsApi";
 import { useProjectContext } from "@/providers/ProjectProvider";
-import type { TicketCreate, TicketUpdate } from "@/types/ticket";
+import type { TicketCreate, TicketStatus, TicketUpdate } from "@/types/ticket";
 
 export function useTickets(filters: TicketFilters = {}) {
   const { selectedProjectId } = useProjectContext();
@@ -66,5 +69,51 @@ export function useDeleteTicket() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
+  });
+}
+
+/** Invalidate ticket queries so lists and detail views refetch. */
+function useInvalidateTickets() {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    void queryClient.invalidateQueries({ queryKey: ["ticket"] });
+    void queryClient.invalidateQueries({ queryKey: ["search"] });
+  };
+}
+
+export function useBulkStatusChange() {
+  const invalidate = useInvalidateTickets();
+  return useMutation({
+    mutationFn: ({
+      ticketIds,
+      status,
+    }: {
+      ticketIds: string[];
+      status: TicketStatus;
+    }) => bulkStatusChange(ticketIds, status),
+    onSuccess: invalidate,
+  });
+}
+
+export function useBulkAssign() {
+  const invalidate = useInvalidateTickets();
+  return useMutation({
+    mutationFn: ({
+      ticketIds,
+      assignedTo,
+    }: {
+      ticketIds: string[];
+      assignedTo: string;
+    }) => bulkAssign(ticketIds, assignedTo),
+    onSuccess: invalidate,
+  });
+}
+
+export function useBulkDelete() {
+  const invalidate = useInvalidateTickets();
+  return useMutation({
+    mutationFn: (ticketIds: string[]) => bulkDelete(ticketIds),
+    onSuccess: invalidate,
   });
 }

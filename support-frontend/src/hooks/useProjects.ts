@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createProject,
   deleteProject,
+  getProjectTicketCount,
   listProjects,
   updateProject,
 } from "@/lib/projectsApi";
@@ -15,6 +16,14 @@ export function useProjects(page = 1, pageSize = 100) {
   return useQuery({
     queryKey: ["projects", page, pageSize],
     queryFn: () => listProjects(page, pageSize),
+  });
+}
+
+export function useProjectTicketCount(projectId: string | null) {
+  return useQuery({
+    queryKey: ["project-ticket-count", projectId],
+    queryFn: () => getProjectTicketCount(projectId as string),
+    enabled: !!projectId,
   });
 }
 

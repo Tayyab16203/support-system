@@ -6,6 +6,7 @@ from uuid import UUID
 from app.core.exceptions import ConflictError, ProjectNotFoundError
 from app.core.logging import get_logger
 from app.db.repositories.project_repo import ProjectRepo
+from app.db.repositories.ticket_repo import TicketRepo
 from app.schemas.project import ProjectCreate, ProjectUpdate
 
 logger = get_logger(__name__)
@@ -122,8 +123,33 @@ class ProjectService:
         logger.info("project_updated", extra={"project_id": str(project_id)})
         return project
 
+    async def get_ticket_count(self, project_id: UUID) -> int:
+        """Count how many tickets belong to a project.
+
+        Lets an admin see how many tickets a delete would cascade before
+        confirming.
+
+        Args:
+            project_id: UUID of the project.
+
+        Returns:
+            The number of tickets in the project.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
+        """
+        existing = await self.repo.get_by_id(project_id)
+        if not existing:
+            raise ProjectNotFoundError(project_id=str(project_id))
+
+        return await TicketRepo().count_by_project(project_id)
+
     async def delete_project(self, project_id: UUID) -> None:
         """Delete a project.
+
+        Deleting a project cascades to all of its tickets (and their
+        attachments/activities) via the ``ON DELETE CASCADE`` foreign key.
+        The frontend warns the admin of the ticket count before confirming.
 
         Args:
             project_id: UUID of the project to delete.

@@ -46,6 +46,34 @@ class UserRepo(BaseRepository):
         )
         return response.data[0] if response.data else None
 
+    async def list_assignable(self) -> list[dict]:
+        """List all users as lightweight assignee options, ordered by name.
+
+        Returns:
+            List of dicts with id, name, email, role.
+        """
+        response = (
+            self._table()
+            .select("id, name, email, role")
+            .order("name", desc=False)
+            .execute()
+        )
+        return response.data or []
+
+    async def list_admins(self) -> list[dict]:
+        """List all admin users (used to fan out new-ticket notifications).
+
+        Returns:
+            List of admin dicts with id, name, email, and notification prefs.
+        """
+        response = (
+            self._table()
+            .select("id, name, email, email_notifications")
+            .eq("role", "admin")
+            .execute()
+        )
+        return response.data or []
+
     async def get_or_create(self, cognito_sub: str, email: str, name: str) -> dict:
         """Get existing user or create a new one on first login.
 
@@ -67,6 +95,36 @@ class UserRepo(BaseRepository):
             "name": name,
             "role": "user",
         })
+
+    # Sentinel identifiers for the reserved placeholder that inherits the
+    # historical records (created tickets, comments, uploads) of deleted users.
+    PLACEHOLDER_COGNITO_SUB = "__deleted_user__"
+    PLACEHOLDER_EMAIL = "deleted-user@system.local"
+
+    async def get_or_create_placeholder(self) -> dict:
+        """Get (or lazily create) the reserved 'Deleted User' placeholder.
+
+        Historical references of a hard-deleted user are repointed to this row
+        so tickets, comments and uploads stay intact without being falsely
+        attributed to a real person.
+
+        Returns:
+            The placeholder user record.
+        """
+        existing = await self.get_by_cognito_sub(self.PLACEHOLDER_COGNITO_SUB)
+        if existing:
+            return existing
+
+        return await self.create_returning(
+            {
+                "cognito_sub": self.PLACEHOLDER_COGNITO_SUB,
+                "email": self.PLACEHOLDER_EMAIL,
+                "name": "Deleted User",
+                "role": "user",
+                "email_notifications": False,
+            },
+            lookup_field="cognito_sub",
+        )
 
     async def update_saved_filters(self, user_id: str, filters: list[dict[str, Any]]) -> dict:
         """Update the saved_filters JSON field for a user.

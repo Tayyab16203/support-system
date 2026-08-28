@@ -50,3 +50,10 @@ export async function updateProject(
 export async function deleteProject(projectId: string): Promise<void> {
   return api.delete(`/projects/${projectId}`);
 }
+
+export async function getProjectTicketCount(projectId: string): Promise<number> {
+  const res = await api.get<{ data: { count: number } }>(
+    `/projects/${projectId}/ticket-count`
+  );
+  return res.data.count;
+}

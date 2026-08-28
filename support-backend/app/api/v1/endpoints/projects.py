@@ -53,6 +53,20 @@ async def get_project(
     return {"data": project, "message": "Success"}
 
 
+@router.get("/{project_id}/ticket-count")
+async def get_project_ticket_count(
+    project_id: UUID,
+    user: dict = Depends(get_admin_user),
+) -> dict:
+    """Get the number of tickets in a project (admin only).
+
+    Used to warn an admin how many tickets a delete would cascade.
+    """
+    service = ProjectService()
+    count = await service.get_ticket_count(project_id)
+    return {"data": {"count": count}, "message": "Success"}
+
+
 @router.put("/{project_id}")
 async def update_project(
     project_id: UUID,

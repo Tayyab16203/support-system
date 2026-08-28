@@ -27,8 +27,22 @@ class Settings(BaseSettings):
     # AWS S3
     s3_bucket_name: str = "support-system-uploads"
 
+    # Email delivery
+    # Which transport actually sends mail: "ses" (AWS SES) or "smtp" (e.g.
+    # Gmail SMTP). SMTP has no sandbox, so it can email any recipient
+    # immediately without per-address verification.
+    email_provider: str = "ses"
+
     # AWS SES
     ses_from_email: str = ""
+
+    # SMTP (used when email_provider == "smtp")
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    # Sender address for SMTP. Falls back to ses_from_email / smtp_username.
+    smtp_from_email: str = ""
 
     # AWS CloudWatch
     cloudwatch_log_group: str = "/support-system/api"

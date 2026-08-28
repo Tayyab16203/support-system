@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies import get_current_user
 from app.schemas.auth import (
+    ConfirmForgotPasswordRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
     NewPasswordRequest,
@@ -37,6 +39,30 @@ async def set_new_password(payload: NewPasswordRequest) -> dict:
         payload.email, payload.new_password, payload.session
     )
     return {"data": result.model_dump(), "message": "Success"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest) -> dict:
+    """Start a self-service password reset. Cognito emails a confirmation code.
+
+    Available to all users, including admins. Always returns success to avoid
+    revealing whether an email is registered.
+    """
+    service = AuthService()
+    await service.forgot_password(payload.email)
+    return {
+        "message": "If that email is registered, a reset code has been sent."
+    }
+
+
+@router.post("/confirm-forgot-password")
+async def confirm_forgot_password(payload: ConfirmForgotPasswordRequest) -> dict:
+    """Complete a password reset with the emailed code and a new password."""
+    service = AuthService()
+    await service.confirm_forgot_password(
+        payload.email, payload.code, payload.new_password
+    )
+    return {"message": "Password has been reset. You can now log in."}
 
 
 @router.post("/logout")

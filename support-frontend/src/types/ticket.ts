@@ -15,8 +15,14 @@ export interface Ticket {
   priority: Priority;
   status: TicketStatus;
   jira_key: string | null;
-  created_by: UserSummary;
-  assigned_to: UserSummary | null;
+  /** Bare FK column: the creator's user id. */
+  created_by: string;
+  /** Bare FK column: the assignee's user id (null if unassigned). */
+  assigned_to: string | null;
+  /** Nested creator user object (embedded by the API via a join). */
+  created_by_user: UserSummary | null;
+  /** Nested assignee user object (embedded by the API via a join). */
+  assigned_to_user: UserSummary | null;
   attachments_count: number;
   activities_count: number;
   created_at: string;
@@ -56,4 +62,24 @@ export interface Attachment {
   download_url: string | null;
   uploaded_by_user?: UserSummary | null;
   uploaded_at: string;
+}
+
+export type ActivityActionType =
+  | "created"
+  | "status_changed"
+  | "updated"
+  | "commented"
+  | "file_uploaded"
+  | "file_deleted"
+  | "assigned";
+
+export interface Activity {
+  id: string;
+  ticket_id: string;
+  action_type: ActivityActionType;
+  actor: UserSummary | null;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  comment: string | null;
+  created_at: string;
 }
