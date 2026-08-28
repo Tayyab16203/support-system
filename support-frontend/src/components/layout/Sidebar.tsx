@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
+import { ProjectSelector } from "@/components/layout/ProjectSelector";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -39,7 +40,10 @@ export function Sidebar() {
         <div className="flex flex-shrink-0 items-center px-4">
           <h2 className="text-xl font-bold text-gray-900">Support System</h2>
         </div>
-        <nav className="mt-8 flex-1 space-y-1 px-2">
+        <div className="mt-4 border-b">
+          <ProjectSelector />
+        </div>
+        <nav className="mt-4 flex-1 space-y-1 px-2">
           {visibleItems.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
