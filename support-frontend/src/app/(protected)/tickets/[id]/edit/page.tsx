@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import {
   TicketForm,
   type TicketFormValues,
 } from "@/components/tickets/TicketForm";
 import { useTicket, useUpdateTicket } from "@/hooks/useTickets";
+import { useToast } from "@/providers/ToastProvider";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingState } from "@/components/ui/Spinner";
 
 function errorMessage(err: unknown): string {
   return err && typeof err === "object" && "message" in err
@@ -17,6 +22,7 @@ function errorMessage(err: unknown): string {
 export default function EditTicketPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const ticketId = params?.id;
 
   const { data, isLoading, error } = useTicket(ticketId);
@@ -39,6 +45,7 @@ export default function EditTicketPage() {
           status: values.status,
         },
       });
+      toast.success("Ticket updated");
       router.push(`/tickets/${ticketId}`);
     } catch (err: unknown) {
       setServerError(errorMessage(err));
@@ -46,26 +53,24 @@ export default function EditTicketPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="rounded-lg border bg-white p-8 text-center text-gray-500">
-        Loading ticket...
-      </div>
-    );
+    return <LoadingState label="Loading ticket..." />;
   }
 
   if (error || !ticket) {
     return (
-      <div className="space-y-4">
-        <div className="rounded-lg border bg-white p-8 text-center text-red-600">
-          Ticket not found or could not be loaded.
-        </div>
-        <button
-          onClick={() => router.push("/tickets")}
-          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          ← Back to tickets
-        </button>
-      </div>
+      <EmptyState
+        title="Ticket not found"
+        description="This ticket could not be loaded. It may have been deleted."
+        action={
+          <Button
+            variant="outline"
+            leftIcon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => router.push("/tickets")}
+          >
+            Back to tickets
+          </Button>
+        }
+      />
     );
   }
 
@@ -74,11 +79,14 @@ export default function EditTicketPage() {
       <div>
         <button
           onClick={() => router.push(`/tickets/${ticketId}`)}
-          className="mb-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+          className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          ← Back to ticket
+          <ArrowLeft className="h-4 w-4" />
+          Back to ticket
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Edit Ticket</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Edit ticket
+        </h1>
       </div>
 
       <TicketForm

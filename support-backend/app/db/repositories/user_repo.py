@@ -46,6 +46,33 @@ class UserRepo(BaseRepository):
         )
         return response.data[0] if response.data else None
 
+    async def list_by_emails(self, emails: list[str]) -> list[dict]:
+        """Fetch users whose email is in the given list (single query).
+
+        Used to resolve @mentioned email addresses to user records for comment
+        notifications. Emails are matched case-insensitively by lowercasing
+        both sides — callers should pass already-normalized emails, but this
+        guards against stray casing.
+
+        Args:
+            emails: Email addresses to look up.
+
+        Returns:
+            List of user dicts (id, name, email, notification prefs). Empty if
+            ``emails`` is empty or nothing matches.
+        """
+        normalized = sorted({e.strip().lower() for e in emails if e and e.strip()})
+        if not normalized:
+            return []
+
+        response = (
+            self._table()
+            .select("id, name, email, email_notifications")
+            .in_("email", normalized)
+            .execute()
+        )
+        return response.data or []
+
     async def list_assignable(self) -> list[dict]:
         """List all users as lightweight assignee options, ordered by name.
 

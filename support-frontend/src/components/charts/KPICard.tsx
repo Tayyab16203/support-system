@@ -10,11 +10,17 @@ interface KPICardProps {
 /** A single KPI metric card (label + large value). */
 export function KPICard({ label, value, accentClassName, suffix }: KPICardProps) {
   return (
-    <div className="bg-white rounded-lg border p-6 shadow-sm">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className={cn("mt-2 text-3xl font-bold text-gray-900", accentClassName)}>
+    <div className="rounded-xl border bg-surface p-6 shadow-soft">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p
+        className={cn("mt-2 text-3xl font-bold text-foreground", accentClassName)}
+      >
         {value}
-        {suffix ? <span className="ml-1 text-base font-medium text-gray-400">{suffix}</span> : null}
+        {suffix ? (
+          <span className="ml-1 text-base font-medium text-muted-foreground">
+            {suffix}
+          </span>
+        ) : null}
       </p>
     </div>
   );

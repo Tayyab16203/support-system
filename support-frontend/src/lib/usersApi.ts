@@ -62,3 +62,16 @@ export async function listAssignableUsers(): Promise<AssignableUser[]> {
   );
   return res.data;
 }
+
+/**
+ * A user that can be @mentioned in a comment. Same shape as AssignableUser,
+ * but served by a non-admin endpoint so any commenter can load it.
+ */
+export type MentionableUser = AssignableUser;
+
+export async function listMentionableUsers(): Promise<MentionableUser[]> {
+  const res = await api.get<{ data: MentionableUser[] }>(
+    "/tickets/mentionable-users"
+  );
+  return res.data;
+}

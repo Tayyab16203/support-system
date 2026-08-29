@@ -3,12 +3,39 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { CheckCircle2, TriangleAlert } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
+import { Button } from "@/components/ui/Button";
+import { FormField, Input } from "@/components/ui/Input";
+
+function Alert({
+  tone,
+  children,
+}: {
+  tone: "success" | "error";
+  children: React.ReactNode;
+}) {
+  const styles =
+    tone === "success"
+      ? "bg-success-soft text-success"
+      : "bg-danger-soft text-danger";
+  const Icon = tone === "success" ? CheckCircle2 : TriangleAlert;
+  return (
+    <div
+      className={`flex items-start gap-2 rounded-lg p-3 text-sm ${styles}`}
+      role="alert"
+    >
+      <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get("reset") === "success";
+  const sessionExpired = searchParams.get("session") === "expired";
   const { login, completeNewPassword } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -27,7 +54,8 @@ function LoginForm() {
       if (result.newPasswordRequired) {
         setNeedsNewPassword(true);
       } else {
-        router.push("/dashboard");
+        const from = searchParams.get("from");
+        router.push(from && from.startsWith("/") ? from : "/dashboard");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -53,39 +81,33 @@ function LoginForm() {
   if (needsNewPassword) {
     return (
       <div className="space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Set New Password</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Your account requires a new password. Please choose one.
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            Set a new password
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Your account requires a new password. Please choose one to continue.
           </p>
         </div>
-        {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <Alert tone="error">{error}</Alert>}
         <form className="space-y-4" onSubmit={handleNewPassword}>
-          <div>
-            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
-              New Password
-            </label>
-            <input
+          <FormField
+            label="New password"
+            htmlFor="newPassword"
+            hint="At least 8 chars, with an uppercase, lowercase, and number."
+          >
+            <Input
               id="newPassword"
               type="password"
               required
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="At least 8 chars, 1 upper, 1 lower, 1 number"
+              placeholder="Enter a new password"
             />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Saving..." : "Set Password & Continue"}
-          </button>
+          </FormField>
+          <Button type="submit" className="w-full" isLoading={loading}>
+            Set password & continue
+          </Button>
         </form>
       </div>
     );
@@ -93,66 +115,63 @@ function LoginForm() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Sign In</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Sign in to your support system account
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Sign in to your support workspace.
         </p>
       </div>
+
       {resetSuccess && !error && (
-        <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-          Password reset successful. Please sign in with your new password.
-        </div>
+        <Alert tone="success">
+          Password reset successful. Sign in with your new password.
+        </Alert>
       )}
-      {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-          {error}
-        </div>
+      {sessionExpired && !error && (
+        <Alert tone="error">
+          Your session has expired. Please sign in again to continue.
+        </Alert>
       )}
+      {error && <Alert tone="error">{error}</Alert>}
+
       <form className="space-y-4" onSubmit={handleLogin}>
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
+        <FormField label="Email" htmlFor="email">
+          <Input
             id="email"
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="you@example.com"
           />
-        </div>
-        <div>
+        </FormField>
+        <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-foreground"
+            >
               Password
             </label>
             <Link
               href="/forgot-password"
-              className="text-sm text-blue-600 hover:text-blue-700"
+              className="text-sm font-medium text-primary hover:text-primary-hover"
             >
               Forgot password?
             </Link>
           </div>
-          <input
+          <Input
             id="password"
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Enter your password"
           />
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? "Signing in..." : "Sign In"}
-        </button>
+        <Button type="submit" className="w-full" isLoading={loading}>
+          Sign in
+        </Button>
       </form>
     </div>
   );

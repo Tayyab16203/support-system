@@ -1,14 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { LayoutDashboard, LifeBuoy } from "lucide-react";
 import { KPICard } from "@/components/charts/KPICard";
 import { OverTimeLineChart } from "@/components/charts/OverTimeLineChart";
 import { PriorityBarChart } from "@/components/charts/PriorityBarChart";
 import { StatusPieChart } from "@/components/charts/StatusPieChart";
 import { TypeBarChart } from "@/components/charts/TypeBarChart";
 import { usePublicDashboard } from "@/hooks/useDashboard";
+import { useAuth } from "@/providers/AuthProvider";
+import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Input";
 
 export default function PublicInsightsPage() {
+  const { isAuthenticated } = useAuth();
   const [projectId, setProjectId] = useState<string>("");
 
   const { data, isLoading, isError, refetch } = usePublicDashboard(
@@ -29,27 +35,69 @@ export default function PublicInsightsPage() {
   const summary = data?.summary;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-30 border-b bg-surface/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-soft">
+              <LifeBuoy className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold tracking-tight text-foreground sm:text-base">
+              Support System
+            </span>
+          </Link>
+          <nav className="flex items-center gap-1 sm:gap-2">
+            <Link
+              href="/"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+            >
+              Home
+            </Link>
+            {isAuthenticated ? (
+              <Link href="/dashboard">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<LayoutDashboard className="h-4 w-4" />}
+                >
+                  <span className="hidden sm:inline">Back to dashboard</span>
+                  <span className="sm:hidden">Dashboard</span>
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button variant="outline" size="sm">
+                  Sign in
+                </Button>
+              </Link>
+            )}
+          </nav>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Support System Insights
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Support Insights
             </h1>
-            <p className="text-gray-600">
+            <p className="mt-1 text-muted-foreground">
               Public metrics across our open support projects.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <label htmlFor="project-filter" className="text-sm text-gray-600">
+            <label
+              htmlFor="project-filter"
+              className="text-sm text-muted-foreground"
+            >
               Project
             </label>
-            <select
+            <Select
               id="project-filter"
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-56"
             >
               <option value="">All public projects</option>
               {projectOptions.map((p) => (
@@ -57,9 +105,9 @@ export default function PublicInsightsPage() {
                   {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
-        </header>
+        </div>
 
         {isError ? (
           <ErrorState onRetry={() => refetch()} />
@@ -72,27 +120,27 @@ export default function PublicInsightsPage() {
               <KPICard
                 label="Pending"
                 value={summary.pending}
-                accentClassName="text-amber-500"
+                accentClassName="text-warning"
               />
               <KPICard
                 label="In Progress"
                 value={summary.in_progress}
-                accentClassName="text-blue-500"
+                accentClassName="text-info"
               />
               <KPICard
                 label="Paused"
                 value={summary.paused}
-                accentClassName="text-purple-500"
+                accentClassName="text-warning"
               />
               <KPICard
                 label="In Review"
                 value={summary.in_review}
-                accentClassName="text-cyan-500"
+                accentClassName="text-primary"
               />
               <KPICard
                 label="Completed"
                 value={summary.completed}
-                accentClassName="text-green-500"
+                accentClassName="text-success"
               />
             </section>
 
@@ -124,7 +172,7 @@ function LoadingState() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="h-24 animate-pulse rounded-lg border bg-white shadow-sm"
+            className="h-24 animate-pulse rounded-xl border bg-surface shadow-soft"
           />
         ))}
       </div>
@@ -132,7 +180,7 @@ function LoadingState() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-80 animate-pulse rounded-lg border bg-white shadow-sm"
+            className="h-80 animate-pulse rounded-xl border bg-surface shadow-soft"
           />
         ))}
       </div>
@@ -146,17 +194,15 @@ interface ErrorStateProps {
 
 function ErrorState({ onRetry }: ErrorStateProps) {
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
-      <p className="text-sm font-medium text-red-700">
+    <div className="rounded-xl border border-danger/30 bg-danger-soft p-8 text-center">
+      <p className="text-sm font-medium text-danger">
         Unable to load dashboard metrics.
       </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-      >
-        Retry
-      </button>
+      <div className="mt-4 flex justify-center">
+        <Button variant="danger" onClick={onRetry}>
+          Retry
+        </Button>
+      </div>
     </div>
   );
 }

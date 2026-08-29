@@ -1,5 +1,15 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowLeftRight,
+  MessageSquare,
+  Paperclip,
+  Pencil,
+  Plus,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { useActivities } from "@/hooks/useActivities";
 import { formatDateTime, formatStatus } from "@/lib/utils";
 import type { Activity, ActivityActionType } from "@/types/ticket";
@@ -10,20 +20,22 @@ interface TicketTimelineProps {
 }
 
 interface ActionStyle {
-  /** Emoji icon rendered inside the timeline node. */
-  icon: string;
+  icon: LucideIcon;
   /** Tailwind classes for the timeline node background/text. */
   node: string;
 }
 
 const ACTION_STYLES: Record<ActivityActionType, ActionStyle> = {
-  created: { icon: "✚", node: "bg-green-100 text-green-700" },
-  status_changed: { icon: "⇄", node: "bg-blue-100 text-blue-700" },
-  updated: { icon: "✎", node: "bg-amber-100 text-amber-700" },
-  commented: { icon: "💬", node: "bg-gray-100 text-gray-700" },
-  file_uploaded: { icon: "📎", node: "bg-purple-100 text-purple-700" },
-  file_deleted: { icon: "🗑", node: "bg-red-100 text-red-700" },
-  assigned: { icon: "👤", node: "bg-indigo-100 text-indigo-700" },
+  created: { icon: Plus, node: "bg-success-soft text-success" },
+  status_changed: { icon: ArrowLeftRight, node: "bg-info-soft text-info" },
+  updated: { icon: Pencil, node: "bg-warning-soft text-warning" },
+  commented: {
+    icon: MessageSquare,
+    node: "bg-surface-muted text-muted-foreground",
+  },
+  file_uploaded: { icon: Paperclip, node: "bg-primary-soft text-primary" },
+  file_deleted: { icon: Trash2, node: "bg-danger-soft text-danger" },
+  assigned: { icon: UserPlus, node: "bg-primary-soft text-primary" },
 };
 
 function stringifyValue(value: unknown): string {
@@ -73,24 +85,25 @@ function describeActivity(activity: Activity): string {
 
 function TimelineEntry({ activity }: { activity: Activity }) {
   const style = ACTION_STYLES[activity.action_type] ?? ACTION_STYLES.updated;
+  const Icon = style.icon;
   const actorName = activity.actor?.name ?? "Someone";
 
   return (
     <li className="relative flex gap-3 pb-6 last:pb-0">
       <span
-        className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${style.node}`}
+        className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${style.node}`}
         aria-hidden="true"
       >
-        {style.icon}
+        <Icon className="h-4 w-4" />
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">
+        <p className="text-sm text-foreground">
           <span className="font-medium">{actorName}</span>{" "}
           {describeActivity(activity)}
         </p>
 
-        <time className="mt-1 block text-xs text-gray-400">
+        <time className="mt-1 block text-xs text-muted-foreground">
           {formatDateTime(activity.created_at)}
         </time>
       </div>
@@ -103,17 +116,19 @@ export function TicketTimeline({ ticketId }: TicketTimelineProps) {
   const activities = data?.data ?? [];
 
   return (
-    <div className="space-y-4 rounded-lg border bg-white p-6">
-      <h2 className="text-sm font-semibold text-gray-500">Activity</h2>
+    <div className="space-y-4 rounded-xl border bg-surface p-6 shadow-soft">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Activity
+      </h2>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500">Loading activity...</p>
+        <p className="text-sm text-muted-foreground">Loading activity...</p>
       ) : error ? (
-        <p className="text-sm text-red-600">Could not load the timeline.</p>
+        <p className="text-sm text-danger">Could not load the timeline.</p>
       ) : activities.length === 0 ? (
-        <p className="text-sm text-gray-500">No activity yet.</p>
+        <p className="text-sm text-muted-foreground">No activity yet.</p>
       ) : (
-        <ol className="relative ml-1 before:absolute before:left-4 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:-translate-x-1/2 before:bg-gray-200">
+        <ol className="relative ml-1 before:absolute before:left-4 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:-translate-x-1/2 before:bg-border">
           {activities.map((activity) => (
             <TimelineEntry key={activity.id} activity={activity} />
           ))}

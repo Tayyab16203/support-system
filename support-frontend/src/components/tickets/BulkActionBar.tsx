@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  useBulkAssign,
-  useBulkStatusChange,
-} from "@/hooks/useTickets";
+import { useBulkAssign, useBulkStatusChange } from "@/hooks/useTickets";
 import { useAssignableUsers } from "@/hooks/useUsers";
+import { Button } from "@/components/ui/Button";
 import type { BulkResult } from "@/lib/ticketsApi";
 import { formatStatus } from "@/lib/utils";
 import type { TicketStatus } from "@/types/ticket";
@@ -36,6 +35,9 @@ function resultMessage(result: BulkResult): string {
   }
   return parts.join(", ");
 }
+
+const bulkSelectClass =
+  "rounded-lg border border-input bg-surface px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50";
 
 /**
  * Floating bar that appears when one or more tickets are selected. Shows the
@@ -87,15 +89,15 @@ export function BulkActionBar({
   }
 
   return (
-    <div className="sticky bottom-4 z-40 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-lg">
-      <span className="text-sm font-medium text-gray-900">
+    <div className="sticky bottom-4 z-40 flex flex-wrap items-center gap-3 rounded-xl border bg-surface px-4 py-3 shadow-popover">
+      <span className="text-sm font-semibold text-foreground">
         {count} selected
       </span>
 
-      <div className="h-5 w-px bg-gray-200" />
+      <div className="h-5 w-px bg-border" />
 
       {/* Change status — available to all users. */}
-      <label className="flex items-center gap-2 text-sm text-gray-600">
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
         Status
         <select
           defaultValue=""
@@ -104,7 +106,7 @@ export function BulkActionBar({
             void handleStatus(e.target.value);
             e.target.value = "";
           }}
-          className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+          className={bulkSelectClass}
         >
           <option value="" disabled>
             Change to…
@@ -119,7 +121,7 @@ export function BulkActionBar({
 
       {/* Assign — admins only. */}
       {isAdmin && (
-        <label className="flex items-center gap-2 text-sm text-gray-600">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
           Assign
           <select
             defaultValue=""
@@ -128,7 +130,7 @@ export function BulkActionBar({
               void handleAssign(e.target.value);
               e.target.value = "";
             }}
-            className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+            className={bulkSelectClass}
           >
             <option value="" disabled>
               Assign to…
@@ -144,28 +146,25 @@ export function BulkActionBar({
 
       {/* Delete — admins only. */}
       {isAdmin && (
-        <button
-          type="button"
+        <Button
+          variant="danger"
+          size="sm"
           disabled={busy}
           onClick={onRequestDelete}
-          className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          leftIcon={<Trash2 className="h-4 w-4" />}
         >
           Delete
-        </button>
+        </Button>
       )}
 
       {feedback && (
-        <span className="text-sm text-gray-500">{feedback}</span>
+        <span className="text-sm text-muted-foreground">{feedback}</span>
       )}
 
       <div className="ml-auto">
-        <button
-          type="button"
-          onClick={onClear}
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
+        <Button variant="ghost" size="sm" onClick={onClear}>
           Clear
-        </button>
+        </Button>
       </div>
     </div>
   );

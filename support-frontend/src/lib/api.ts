@@ -3,9 +3,36 @@
  * Attaches the access token (issued by our backend) to every request.
  */
 
-import { getAccessToken } from "@/lib/authTokens";
+import { clearTokens, getAccessToken } from "@/lib/authTokens";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+/**
+ * Paths that should NOT trigger the global "session expired" redirect on a
+ * 401. These are the unauthenticated auth endpoints where a 401 simply means
+ * "wrong credentials" rather than "your session ended".
+ */
+const AUTH_PATHS = [
+  "/auth/login",
+  "/auth/new-password",
+  "/auth/forgot-password",
+  "/auth/confirm-forgot-password",
+];
+
+/**
+ * Handle an expired/invalid session: wipe stored tokens and send the user to
+ * the login page with a notice, preserving where they were so we could return
+ * them after re-auth. Runs only in the browser.
+ */
+function handleSessionExpired(): void {
+  if (typeof window === "undefined") return;
+  clearTokens();
+  const { pathname, search } = window.location;
+  // Avoid a redirect loop if we're already on an auth page.
+  if (pathname.startsWith("/login")) return;
+  const from = encodeURIComponent(pathname + search);
+  window.location.href = `/login?session=expired&from=${from}`;
+}
 
 interface ApiError {
   error: string;
@@ -57,6 +84,14 @@ class ApiClient {
         message: `Request failed with status ${response.status}`,
         details: {},
       }));
+
+      // A 401 on any authenticated endpoint means the session is gone or
+      // expired. Clear tokens and bounce to login — except on the auth
+      // endpoints themselves, where a 401 is just "bad credentials".
+      if (response.status === 401 && !AUTH_PATHS.some((p) => path.startsWith(p))) {
+        handleSessionExpired();
+      }
+
       throw error;
     }
 

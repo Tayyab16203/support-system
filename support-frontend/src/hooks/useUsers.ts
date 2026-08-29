@@ -8,6 +8,7 @@ import {
   createUser,
   deleteUser,
   listAssignableUsers,
+  listMentionableUsers,
   listUsers,
   updateUserRole,
 } from "@/lib/usersApi";
@@ -32,9 +33,23 @@ export function useAssignableUsers(enabled = true) {
   });
 }
 
+/**
+ * Users that can be @mentioned in a comment (non-admin endpoint, available to
+ * every authenticated user). Cached broadly since the list rarely changes.
+ */
+export function useMentionableUsers(enabled = true) {
+  return useQuery({
+    queryKey: ["mentionable-users"],
+    queryFn: listMentionableUsers,
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "User", action: "create" },
     mutationFn: (payload: AdminUserCreate) => createUser(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -45,6 +60,7 @@ export function useCreateUser() {
 export function useUpdateUserRole() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "User", successMessage: "User role updated" },
     mutationFn: ({ userId, role }: { userId: string; role: UserRole }) =>
       updateUserRole(userId, role),
     onSuccess: () => {
@@ -55,6 +71,7 @@ export function useUpdateUserRole() {
 
 export function useAdminResetPassword() {
   return useMutation({
+    meta: { entity: "User", successMessage: "Password reset email sent" },
     mutationFn: (userId: string) => adminResetUserPassword(userId),
   });
 }
@@ -62,6 +79,7 @@ export function useAdminResetPassword() {
 export function useDeleteUser() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "User", action: "delete" },
     mutationFn: (userId: string) => deleteUser(userId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["users"] });

@@ -2,8 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens
+ * -------------
+ * A modern, clean support-desk palette: indigo primary on slate neutrals.
+ * All values are HSL channels (without the hsl() wrapper) so Tailwind can
+ * compose them with opacity modifiers, e.g. `bg-primary/10`.
+ */
 @layer base {
+  :root {
+    /* Neutrals (slate) */
+    --background: 210 40% 98%; /* app canvas */
+    --surface: 0 0% 100%; /* cards, panels */
+    --surface-muted: 210 40% 96%; /* subtle fills, table headers */
+    --foreground: 222 47% 11%; /* primary text */
+    --muted-foreground: 215 16% 47%; /* secondary text */
+    --border: 214 32% 91%; /* hairlines */
+    --input: 214 32% 91%;
+    --ring: 243 75% 59%;
+
+    /* Brand (indigo) */
+    --primary: 243 75% 59%; /* indigo-600-ish */
+    --primary-hover: 245 58% 51%;
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 243 100% 97%; /* tinted backgrounds */
+    --primary-soft-foreground: 244 55% 41%;
+
+    /* Semantic */
+    --success: 142 71% 45%;
+    --success-soft: 141 79% 95%;
+    --warning: 38 92% 50%;
+    --warning-soft: 48 96% 94%;
+    --danger: 0 72% 51%;
+    --danger-soft: 0 86% 97%;
+    --info: 199 89% 48%;
+    --info-soft: 204 94% 94%;
+
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
   body {
     @apply antialiased;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Nicer default focus ring across interactive elements */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.6);
+    outline-offset: 2px;
+  }
+
+  /* Slimmer, less obtrusive scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+  }
+}
+
+@layer components {
+  /* Shared card surface used across the app */
+  .card {
+    @apply rounded-xl border bg-surface shadow-sm;
+  }
+}
+
+@layer utilities {
+  /* Smooth entrance for toasts, drawers, and menus */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.15s ease-out;
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 0.2s ease-out;
+  }
+  .animate-slide-in-left {
+    animation: slide-in-left 0.2s ease-out;
   }
 }

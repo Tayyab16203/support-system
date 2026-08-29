@@ -1,13 +1,18 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { TriangleAlert, Upload, X } from "lucide-react";
 import { ALLOWED_CONTENT_TYPES, validateFile } from "@/lib/uploadsApi";
 import { formatFileSize, formatStatus } from "@/lib/utils";
-import type {
-  Priority,
-  TicketStatus,
-  TicketType,
-} from "@/types/ticket";
+import { Button } from "@/components/ui/Button";
+import {
+  FormField,
+  Input,
+  Label,
+  Select,
+  Textarea,
+} from "@/components/ui/Input";
+import type { Priority, TicketStatus, TicketType } from "@/types/ticket";
 
 export interface TicketFormValues {
   title: string;
@@ -147,142 +152,112 @@ export function TicketForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-5 rounded-lg border bg-white p-6"
+      className="space-y-5 rounded-xl border bg-surface p-6 shadow-soft"
     >
       {serverError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {serverError}
+        <div className="flex items-start gap-2 rounded-lg bg-danger-soft p-3 text-sm text-danger">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{serverError}</span>
         </div>
       )}
 
-      <div>
-        <label
-          htmlFor="ticket-title"
-          className="block text-sm font-medium text-gray-700"
-        >
-          Title
-        </label>
-        <input
+      <FormField
+        label="Title"
+        htmlFor="ticket-title"
+        error={touched ? errors.title : undefined}
+      >
+        <Input
           id="ticket-title"
           type="text"
           value={form.title}
           onChange={(e) => setForm({ ...form, title: e.target.value })}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="Short summary of the issue"
           aria-invalid={Boolean(touched && errors.title)}
         />
-        {touched && errors.title && (
-          <p className="mt-1 text-sm text-red-600">{errors.title}</p>
-        )}
-      </div>
+      </FormField>
 
-      <div>
-        <label
-          htmlFor="ticket-description"
-          className="block text-sm font-medium text-gray-700"
-        >
-          Description
-        </label>
-        <textarea
+      <FormField
+        label="Description"
+        htmlFor="ticket-description"
+        error={touched ? errors.description : undefined}
+      >
+        <Textarea
           id="ticket-description"
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={5}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="Describe the problem, steps to reproduce, and expected behavior"
           aria-invalid={Boolean(touched && errors.description)}
         />
-        {touched && errors.description && (
-          <p className="mt-1 text-sm text-red-600">{errors.description}</p>
-        )}
-      </div>
+      </FormField>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div>
-          <label
-            htmlFor="ticket-type"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Type
-          </label>
-          <select
+        <FormField label="Type" htmlFor="ticket-type">
+          <Select
             id="ticket-type"
             value={form.type}
             onChange={(e) =>
               setForm({ ...form, type: e.target.value as TicketType })
             }
-            className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {TICKET_TYPES.map((t) => (
               <option key={t} value={t}>
                 {formatStatus(t)}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FormField>
 
-        <div>
-          <label
-            htmlFor="ticket-priority"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Priority
-          </label>
-          <select
+        <FormField label="Priority" htmlFor="ticket-priority">
+          <Select
             id="ticket-priority"
             value={form.priority}
             onChange={(e) =>
               setForm({ ...form, priority: e.target.value as Priority })
             }
-            className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {PRIORITIES.map((p) => (
               <option key={p} value={p}>
                 {formatStatus(p)}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FormField>
 
         {isEdit && (
-          <div>
-            <label
-              htmlFor="ticket-status"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Status
-            </label>
-            <select
+          <FormField label="Status" htmlFor="ticket-status">
+            <Select
               id="ticket-status"
               value={form.status}
               onChange={(e) =>
                 setForm({ ...form, status: e.target.value as TicketStatus })
               }
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {formatStatus(s)}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormField>
         )}
       </div>
 
       {!isEdit && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           New tickets start with a status of{" "}
-          <span className="font-medium">Pending</span>.
+          <span className="font-medium text-foreground">Pending</span>.
         </p>
       )}
 
       {showFilePicker && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
+        <div className="space-y-1.5">
+          <Label>
             Attachments{" "}
-            <span className="font-normal text-gray-400">(optional)</span>
-          </label>
+            <span className="font-normal text-muted-foreground">
+              (optional)
+            </span>
+          </Label>
           <div
             role="button"
             tabIndex={0}
@@ -291,10 +266,15 @@ export function TicketForm({
               if (e.key === "Enter" || e.key === " ")
                 fileInputRef.current?.click();
             }}
-            className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4 text-center hover:border-gray-400"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-input bg-surface-muted/50 p-6 text-center transition-colors hover:border-primary/50 hover:bg-primary-soft/40"
           >
-            <p className="text-sm text-gray-600">Click to add images or videos</p>
-            <p className="mt-0.5 text-xs text-gray-400">
+            <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary-soft text-primary">
+              <Upload className="h-5 w-5" />
+            </span>
+            <p className="text-sm font-medium text-foreground">
+              Click to add images or videos
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Up to 50MB each (JPEG, PNG, GIF, WebP, MP4, WebM)
             </p>
             <input
@@ -310,28 +290,27 @@ export function TicketForm({
             />
           </div>
 
-          {fileError && (
-            <p className="mt-1 text-sm text-red-600">{fileError}</p>
-          )}
+          {fileError && <p className="text-sm text-danger">{fileError}</p>}
 
           {files.length > 0 && (
             <ul className="mt-2 space-y-1.5">
               {files.map((file, index) => (
                 <li
                   key={`${file.name}-${index}`}
-                  className="flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm"
+                  className="flex items-center justify-between gap-2 rounded-lg border bg-surface px-3 py-2 text-sm"
                 >
-                  <span className="truncate text-gray-800">{file.name}</span>
+                  <span className="truncate text-foreground">{file.name}</span>
                   <span className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       {formatFileSize(file.size)}
                     </span>
                     <button
                       type="button"
                       onClick={() => removeFile(index)}
-                      className="text-xs font-medium text-red-600 hover:text-red-700"
+                      aria-label={`Remove ${file.name}`}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-danger-soft hover:text-danger"
                     >
-                      Remove
+                      <X className="h-4 w-4" />
                     </button>
                   </span>
                 </li>
@@ -342,27 +321,13 @@ export function TicketForm({
       )}
 
       <div className="flex items-center gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {isSubmitting
-            ? isEdit
-              ? "Saving..."
-              : "Creating..."
-            : isEdit
-              ? "Save Changes"
-              : "Create Ticket"}
-        </button>
+        <Button type="submit" isLoading={isSubmitting}>
+          {isEdit ? "Save changes" : "Create ticket"}
+        </Button>
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
     </form>

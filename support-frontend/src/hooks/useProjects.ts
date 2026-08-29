@@ -30,6 +30,7 @@ export function useProjectTicketCount(projectId: string | null) {
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "Project", action: "create" },
     mutationFn: (payload: ProjectCreate) => createProject(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -47,6 +48,7 @@ export function useUpdateProject() {
       projectId: string;
       payload: ProjectUpdate;
     }) => updateProject(projectId, payload),
+    meta: { entity: "Project", action: "update" },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
@@ -56,6 +58,7 @@ export function useUpdateProject() {
 export function useDeleteProject() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "Project", action: "delete" },
     mutationFn: (projectId: string) => deleteProject(projectId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });

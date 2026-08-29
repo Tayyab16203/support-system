@@ -38,6 +38,7 @@ export function useTicket(ticketId: string | undefined) {
 export function useCreateTicket() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "Ticket", action: "create" },
     mutationFn: (payload: TicketCreate) => createTicket(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
@@ -55,6 +56,7 @@ export function useUpdateTicket() {
       ticketId: string;
       payload: TicketUpdate;
     }) => updateTicket(ticketId, payload),
+    meta: { entity: "Ticket", action: "update" },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
       void queryClient.invalidateQueries({ queryKey: ["ticket"] });
@@ -65,6 +67,7 @@ export function useUpdateTicket() {
 export function useDeleteTicket() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "Ticket", action: "delete" },
     mutationFn: (ticketId: string) => deleteTicket(ticketId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
@@ -92,6 +95,7 @@ export function useBulkStatusChange() {
       ticketIds: string[];
       status: TicketStatus;
     }) => bulkStatusChange(ticketIds, status),
+    meta: { entity: "Tickets", successMessage: "Ticket statuses updated" },
     onSuccess: invalidate,
   });
 }
@@ -106,6 +110,7 @@ export function useBulkAssign() {
       ticketIds: string[];
       assignedTo: string;
     }) => bulkAssign(ticketIds, assignedTo),
+    meta: { entity: "Tickets", successMessage: "Tickets assigned" },
     onSuccess: invalidate,
   });
 }
@@ -113,6 +118,7 @@ export function useBulkAssign() {
 export function useBulkDelete() {
   const invalidate = useInvalidateTickets();
   return useMutation({
+    meta: { entity: "Tickets", successMessage: "Tickets deleted" },
     mutationFn: (ticketIds: string[]) => bulkDelete(ticketIds),
     onSuccess: invalidate,
   });

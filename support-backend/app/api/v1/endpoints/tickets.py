@@ -11,6 +11,7 @@ from app.schemas.common import build_pagination
 from app.schemas.ticket import TicketCreate, TicketUpdate
 from app.services.activity_service import ActivityService
 from app.services.ticket_service import TicketService
+from app.services.user_service import UserService
 
 router = APIRouter()
 
@@ -51,6 +52,25 @@ async def list_tickets(
         "data": tickets,
         "pagination": build_pagination(total, page, page_size).model_dump(),
     }
+
+
+@router.get("/mentionable-users")
+async def list_mentionable_users(
+    user: dict = Depends(get_current_user),
+    project_id: UUID = Depends(get_current_project),
+) -> dict:
+    """List users that can be @mentioned in a comment.
+
+    Available to any authenticated user (unlike the admin-only assignee
+    picker) so every commenter can mention teammates. Returns a lightweight
+    id/name/email/role shape for the mention autocomplete dropdown.
+
+    Declared before the ``/{ticket_id}`` routes so the static path is not
+    captured as a ticket id.
+    """
+    service = UserService()
+    users = await service.list_assignable()
+    return {"data": users}
 
 
 @router.post("", status_code=201)
@@ -185,20 +205,23 @@ async def list_ticket_comments(
 async def add_ticket_comment(
     ticket_id: UUID,
     payload: CommentCreate,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
     project_id: UUID = Depends(get_current_project),
 ) -> dict:
     """Add a comment to a ticket's timeline.
 
-    Verifies the ticket belongs to the current project, then records a
-    ``commented`` activity attributed to the current user.
+    Verifies the ticket belongs to the current project, records a
+    ``commented`` activity attributed to the current user, and emails the
+    ticket creator, assignee, and anyone @mentioned in the comment (in the
+    background so the response is not delayed by email delivery).
     """
-    ticket_service = TicketService()
-    # Raises TicketNotFoundError if the ticket is missing or in another project.
-    await ticket_service.get_by_id(ticket_id, project_id=project_id)
-
-    activity_service = ActivityService()
-    activity = await activity_service.add_comment(
-        ticket_id=ticket_id, actor_id=user["id"], comment=payload.comment
+    service = TicketService()
+    activity = await service.add_comment(
+        ticket_id=ticket_id,
+        comment=payload.comment,
+        user_id=user["id"],
+        project_id=project_id,
+        background_tasks=background_tasks,
     )
     return {"data": activity, "message": "Comment added"}

@@ -3,9 +3,33 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, Info, TriangleAlert } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
+import { Button } from "@/components/ui/Button";
+import { FormField, Input } from "@/components/ui/Input";
 
 type Step = "request" | "confirm";
+
+function Alert({
+  tone,
+  children,
+}: {
+  tone: "info" | "error";
+  children: React.ReactNode;
+}) {
+  const styles =
+    tone === "info" ? "bg-info-soft text-info" : "bg-danger-soft text-danger";
+  const Icon = tone === "info" ? Info : TriangleAlert;
+  return (
+    <div
+      className={`flex items-start gap-2 rounded-lg p-3 text-sm ${styles}`}
+      role="alert"
+    >
+      <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -59,57 +83,38 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
-        <p className="mt-2 text-sm text-gray-600">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Reset password</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
           {step === "request"
             ? "Enter your email and we'll send you a reset code."
             : "Enter the code we emailed you and choose a new password."}
         </p>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-      {info && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700">
-          {info}
-        </div>
-      )}
+      {error && <Alert tone="error">{error}</Alert>}
+      {info && <Alert tone="info">{info}</Alert>}
 
       {step === "request" ? (
         <form className="space-y-4" onSubmit={handleRequest}>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
+          <FormField label="Email" htmlFor="email">
+            <Input
               id="email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="you@example.com"
             />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Sending..." : "Send Reset Code"}
-          </button>
+          </FormField>
+          <Button type="submit" className="w-full" isLoading={loading}>
+            Send reset code
+          </Button>
         </form>
       ) : (
         <form className="space-y-4" onSubmit={handleConfirm}>
-          <div>
-            <label htmlFor="code" className="block text-sm font-medium text-gray-700">
-              Reset Code
-            </label>
-            <input
+          <FormField label="Reset code" htmlFor="code">
+            <Input
               id="code"
               type="text"
               inputMode="numeric"
@@ -117,35 +122,27 @@ export default function ForgotPasswordPage() {
               required
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Enter the code from your email"
             />
-          </div>
-          <div>
-            <label
-              htmlFor="newPassword"
-              className="block text-sm font-medium text-gray-700"
-            >
-              New Password
-            </label>
-            <input
+          </FormField>
+          <FormField
+            label="New password"
+            htmlFor="newPassword"
+            hint="At least 8 chars, with an uppercase, lowercase, and number."
+          >
+            <Input
               id="newPassword"
               type="password"
               required
               minLength={8}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="At least 8 chars, 1 upper, 1 lower, 1 number"
+              placeholder="Choose a new password"
             />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Resetting..." : "Reset Password"}
-          </button>
+          </FormField>
+          <Button type="submit" className="w-full" isLoading={loading}>
+            Reset password
+          </Button>
           <button
             type="button"
             onClick={() => {
@@ -153,15 +150,19 @@ export default function ForgotPasswordPage() {
               setInfo(null);
               setError(null);
             }}
-            className="w-full text-sm text-gray-500 hover:text-gray-700"
+            className="w-full text-sm text-muted-foreground hover:text-foreground"
           >
             Use a different email
           </button>
         </form>
       )}
 
-      <div className="text-center">
-        <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700">
+      <div className="border-t pt-4 text-center">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary-hover"
+        >
+          <ArrowLeft className="h-4 w-4" />
           Back to sign in
         </Link>
       </div>

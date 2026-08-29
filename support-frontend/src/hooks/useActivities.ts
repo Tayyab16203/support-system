@@ -24,6 +24,7 @@ export function useComments(ticketId: string | undefined) {
 export function useAddComment(ticketId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "Comment", successMessage: "Comment added" },
     mutationFn: (comment: string) => addComment(ticketId as string, comment),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["comments", ticketId] });

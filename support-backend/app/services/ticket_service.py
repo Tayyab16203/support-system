@@ -141,6 +141,52 @@ class TicketService:
             raise TicketNotFoundError(ticket_id=str(ticket_id))
         return ticket
 
+    async def add_comment(
+        self,
+        ticket_id: UUID,
+        comment: str,
+        user_id: UUID,
+        project_id: UUID,
+        background_tasks: Optional[BackgroundTasks] = None,
+    ) -> dict:
+        """Add a comment to a ticket and notify stakeholders + mentioned users.
+
+        Verifies the ticket belongs to the current project, records a
+        ``commented`` activity attributed to the caller, then (in the
+        background) emails the creator, assignee, and anyone @mentioned in the
+        comment body. Email sending runs on ``background_tasks`` so the
+        response is not delayed by SES.
+
+        Args:
+            ticket_id: The ticket being commented on.
+            comment: The comment text (validated by the schema layer).
+            user_id: UUID of the authenticated commenter (the actor).
+            project_id: UUID of the current project (from context).
+            background_tasks: Optional queue for the notification email.
+
+        Returns:
+            The created activity record.
+
+        Raises:
+            TicketNotFoundError: If the ticket is missing or in another project.
+        """
+        # Raises TicketNotFoundError if the ticket is missing or cross-project.
+        await self.get_by_id(ticket_id, project_id=project_id)
+
+        activity = await self.activity.add_comment(
+            ticket_id=ticket_id, actor_id=user_id, comment=comment
+        )
+
+        if background_tasks is not None:
+            background_tasks.add_task(
+                self.notifications.notify_comment_added,
+                ticket_id,
+                user_id,
+                comment,
+            )
+
+        return activity
+
     async def list_by_project(
         self,
         project_id: UUID,
@@ -390,8 +436,20 @@ class TicketService:
                         UUID(str(new_assignee)),
                         actor_id,
                     )
+                # Keep the owner in the loop on any assignee change (assign,
+                # reassign, or unassign), showing readable names. Best-effort.
+                if background_tasks is not None:
+                    background_tasks.add_task(
+                        self.notifications.notify_owner_assignee_changed,
+                        ticket_id,
+                        await self._resolve_user_name(old_assignee),
+                        await self._resolve_user_name(new_assignee),
+                        actor_id,
+                    )
 
         # Any other changed fields → a single grouped "updated" activity.
+        # ``tags`` is included here so that, once the tickets table/schema
+        # gains a tags column, tag edits automatically notify the owner too.
         tracked_separately = {"status", "assigned_to"}
         other_old: dict[str, Any] = {}
         other_new: dict[str, Any] = {}
@@ -411,6 +469,19 @@ class TicketService:
                 old_value=other_old,
                 new_value=other_new,
             )
+            # Keep the owner informed of every other field change (title,
+            # description, type, priority, tags, ...), even when they made it.
+            if background_tasks is not None:
+                changes = {
+                    field: {"old": other_old[field], "new": other_new[field]}
+                    for field in other_new
+                }
+                background_tasks.add_task(
+                    self.notifications.notify_ticket_updated,
+                    ticket_id,
+                    changes,
+                    actor_id,
+                )
 
     def _schedule_status_notification(
         self,

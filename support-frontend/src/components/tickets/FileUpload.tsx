@@ -2,12 +2,13 @@
 
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { CloudUpload } from "lucide-react";
 import {
   ALLOWED_CONTENT_TYPES,
   uploadFile,
   validateFile,
 } from "@/lib/uploadsApi";
-import { formatFileSize } from "@/lib/utils";
+import { cn, formatFileSize } from "@/lib/utils";
 
 interface FileUploadProps {
   /** The ticket to attach uploaded files to. */
@@ -95,16 +96,20 @@ export function FileUpload({ ticketId }: FileUploadProps) {
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+        className={cn(
+          "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors",
           isDragging
-            ? "border-blue-500 bg-blue-50"
-            : "border-gray-300 bg-gray-50 hover:border-gray-400"
-        }`}
+            ? "border-primary bg-primary-soft/50"
+            : "border-input bg-surface-muted/50 hover:border-primary/50 hover:bg-primary-soft/40"
+        )}
       >
-        <p className="text-sm font-medium text-gray-700">
+        <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary-soft text-primary">
+          <CloudUpload className="h-5 w-5" />
+        </span>
+        <p className="text-sm font-medium text-foreground">
           Drag & drop files here, or click to browse
         </p>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-0.5 text-xs text-muted-foreground">
           Images and videos up to 50MB (JPEG, PNG, GIF, WebP, MP4, WebM)
         </p>
         <input
@@ -125,30 +130,30 @@ export function FileUpload({ ticketId }: FileUploadProps) {
           {items.map((item) => (
             <li
               key={item.id}
-              className="rounded-lg border bg-white px-3 py-2 text-sm"
+              className="rounded-lg border bg-surface px-3 py-2 text-sm"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-gray-800">{item.file.name}</span>
-                <span className="shrink-0 text-xs text-gray-500">
+                <span className="truncate text-foreground">
+                  {item.file.name}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {formatFileSize(item.file.size)}
                 </span>
               </div>
 
               {item.status === "uploading" && (
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
                   <div
-                    className="h-full bg-blue-600 transition-all"
+                    className="h-full bg-primary transition-all"
                     style={{ width: `${item.progress}%` }}
                   />
                 </div>
               )}
               {item.status === "done" && (
-                <p className="mt-1 text-xs font-medium text-green-600">
-                  Uploaded
-                </p>
+                <p className="mt-1 text-xs font-medium text-success">Uploaded</p>
               )}
               {item.status === "error" && (
-                <p className="mt-1 text-xs font-medium text-red-600">
+                <p className="mt-1 text-xs font-medium text-danger">
                   {item.error}
                 </p>
               )}

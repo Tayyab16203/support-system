@@ -2,6 +2,8 @@
 
 import { useAuth } from "@/hooks/useAuth";
 import { useUsers } from "@/hooks/useUsers";
+import { Button } from "@/components/ui/Button";
+import { Input, Select } from "@/components/ui/Input";
 import type { TicketFilters } from "@/lib/ticketsApi";
 import type { Priority, TicketStatus, TicketType } from "@/types/ticket";
 
@@ -36,9 +38,6 @@ const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
   { value: "low", label: "Low" },
 ];
 
-const SELECT_CLASS =
-  "rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
-
 /** Convert a date-only input value (YYYY-MM-DD) into an ISO datetime, or undefined. */
 function toIsoStart(value: string): string | undefined {
   return value ? new Date(`${value}T00:00:00`).toISOString() : undefined;
@@ -51,6 +50,21 @@ function toIsoEnd(value: string): string | undefined {
 /** Extract the YYYY-MM-DD portion of an ISO string for date input display. */
 function isoToDateInput(value: string | undefined): string {
   return value ? value.slice(0, 10) : "";
+}
+
+function FilterLabel({
+  children,
+  control,
+}: {
+  children: React.ReactNode;
+  control: React.ReactNode;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      {children}
+      {control}
+    </label>
+  );
 }
 
 export function FilterBar({ filters, onChange, onReset }: FilterBarProps) {
@@ -69,107 +83,133 @@ export function FilterBar({ filters, onChange, onReset }: FilterBarProps) {
   );
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-white p-4">
-      <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
-        Status
-        <select
-          className={SELECT_CLASS}
-          value={filters.status ?? ""}
-          onChange={(e) =>
-            onChange({ status: (e.target.value || undefined) as TicketStatus | undefined })
-          }
-        >
-          <option value="">All</option>
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
-        Type
-        <select
-          className={SELECT_CLASS}
-          value={filters.type ?? ""}
-          onChange={(e) =>
-            onChange({ type: (e.target.value || undefined) as TicketType | undefined })
-          }
-        >
-          <option value="">All</option>
-          {TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
-        Priority
-        <select
-          className={SELECT_CLASS}
-          value={filters.priority ?? ""}
-          onChange={(e) =>
-            onChange({ priority: (e.target.value || undefined) as Priority | undefined })
-          }
-        >
-          <option value="">All</option>
-          {PRIORITY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {isAdmin && users.length > 0 && (
-        <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
-          Assignee
-          <select
-            className={SELECT_CLASS}
-            value={filters.assignedTo ?? ""}
-            onChange={(e) => onChange({ assignedTo: e.target.value || undefined })}
+    <div className="grid grid-cols-2 items-end gap-3 rounded-xl border bg-surface p-4 shadow-soft sm:flex sm:flex-wrap">
+      <FilterLabel
+        control={
+          <Select
+            value={filters.status ?? ""}
+            onChange={(e) =>
+              onChange({
+                status: (e.target.value || undefined) as
+                  | TicketStatus
+                  | undefined,
+              })
+            }
           >
-            <option value="">Anyone</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
+            <option value="">All</option>
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        }
+      >
+        Status
+      </FilterLabel>
+
+      <FilterLabel
+        control={
+          <Select
+            value={filters.type ?? ""}
+            onChange={(e) =>
+              onChange({
+                type: (e.target.value || undefined) as TicketType | undefined,
+              })
+            }
+          >
+            <option value="">All</option>
+            {TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        }
+      >
+        Type
+      </FilterLabel>
+
+      <FilterLabel
+        control={
+          <Select
+            value={filters.priority ?? ""}
+            onChange={(e) =>
+              onChange({
+                priority: (e.target.value || undefined) as
+                  | Priority
+                  | undefined,
+              })
+            }
+          >
+            <option value="">All</option>
+            {PRIORITY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        }
+      >
+        Priority
+      </FilterLabel>
+
+      {isAdmin && users.length > 0 && (
+        <FilterLabel
+          control={
+            <Select
+              value={filters.assignedTo ?? ""}
+              onChange={(e) =>
+                onChange({ assignedTo: e.target.value || undefined })
+              }
+            >
+              <option value="">Anyone</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </Select>
+          }
+        >
+          Assignee
+        </FilterLabel>
       )}
 
-      <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
+      <FilterLabel
+        control={
+          <Input
+            type="date"
+            value={isoToDateInput(filters.dateFrom)}
+            onChange={(e) => onChange({ dateFrom: toIsoStart(e.target.value) })}
+          />
+        }
+      >
         From
-        <input
-          type="date"
-          className={SELECT_CLASS}
-          value={isoToDateInput(filters.dateFrom)}
-          onChange={(e) => onChange({ dateFrom: toIsoStart(e.target.value) })}
-        />
-      </label>
+      </FilterLabel>
 
-      <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
+      <FilterLabel
+        control={
+          <Input
+            type="date"
+            value={isoToDateInput(filters.dateTo)}
+            onChange={(e) => onChange({ dateTo: toIsoEnd(e.target.value) })}
+          />
+        }
+      >
         To
-        <input
-          type="date"
-          className={SELECT_CLASS}
-          value={isoToDateInput(filters.dateTo)}
-          onChange={(e) => onChange({ dateTo: toIsoEnd(e.target.value) })}
-        />
-      </label>
+      </FilterLabel>
 
       {hasActiveFilters && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={onReset}
-          className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="col-span-2 sm:col-auto sm:ml-auto"
         >
           Clear filters
-        </button>
+        </Button>
       )}
     </div>
   );

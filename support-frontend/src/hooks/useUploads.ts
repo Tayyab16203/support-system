@@ -16,6 +16,7 @@ export function useAttachments(ticketId: string | undefined) {
 export function useDeleteAttachment(ticketId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "Attachment", action: "delete" },
     mutationFn: (attachmentId: string) => deleteAttachment(attachmentId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["attachments", ticketId] });
