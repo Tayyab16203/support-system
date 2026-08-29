@@ -220,6 +220,57 @@ class TicketRepo(BaseRepository):
         )
         return response.count or 0
 
+    async def fetch_for_aggregation(
+        self,
+        project_ids: Optional[list[UUID]] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        involving_user_id: Optional[UUID] = None,
+    ) -> list[dict]:
+        """Fetch lightweight ticket rows for dashboard aggregation.
+
+        Selects only the columns needed to compute KPIs (status, type,
+        priority, timestamps, creator, assignee, project) and lets the service
+        do the grouping in Python. This avoids one round-trip per bucket while
+        keeping the query simple, since PostgREST has no native GROUP BY.
+
+        Args:
+            project_ids: Optional list of project UUIDs to restrict to. When
+                provided but empty, returns ``[]`` without querying (no
+                project is in scope, e.g. no public projects exist).
+            date_from: Optional ISO datetime; include tickets created at/after.
+            date_to: Optional ISO datetime; include tickets created at/before.
+            involving_user_id: Optional user filter for the personal dashboard.
+                When set, only tickets the user created *or* is assigned to are
+                returned (so their created / assigned / completed counts can be
+                derived in the service).
+
+        Returns:
+            List of ticket dicts with keys: id, project_id, status, type,
+            priority, created_by, assigned_to, created_at, updated_at.
+        """
+        if project_ids is not None and len(project_ids) == 0:
+            return []
+
+        query = self._table().select(
+            "id, project_id, status, type, priority, created_by, assigned_to, "
+            "created_at, updated_at"
+        )
+
+        if project_ids:
+            query = query.in_("project_id", [str(pid) for pid in project_ids])
+        if date_from:
+            query = query.gte("created_at", date_from)
+        if date_to:
+            query = query.lte("created_at", date_to)
+        if involving_user_id is not None:
+            uid = str(involving_user_id)
+            # Tickets the user created OR is currently assigned to.
+            query = query.or_(f"created_by.eq.{uid},assigned_to.eq.{uid}")
+
+        response = query.execute()
+        return response.data or []
+
     async def count_by_status(self, project_id: Optional[UUID] = None) -> dict[str, int]:
         """Count tickets grouped by status.
 

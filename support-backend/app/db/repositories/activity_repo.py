@@ -69,6 +69,35 @@ class ActivityRepo(BaseRepository):
             "actor_id", str(from_user_id)
         ).execute()
 
+    async def fetch_status_changes(self, ticket_ids: list[UUID]) -> list[dict]:
+        """Fetch status-change activities for a set of tickets.
+
+        Used by the protected insights dashboard to reconstruct how long each
+        ticket spent in each status. Only ``status_changed`` activities are
+        returned, ordered oldest-first per ticket so the service can walk
+        consecutive transitions and measure the gaps between them.
+
+        Args:
+            ticket_ids: Tickets to fetch transitions for. An empty list short
+                -circuits to ``[]`` without querying.
+
+        Returns:
+            List of activity dicts with keys: ticket_id, old_value, new_value,
+            created_at (ascending by created_at).
+        """
+        if not ticket_ids:
+            return []
+
+        response = (
+            self._table()
+            .select("ticket_id, old_value, new_value, created_at")
+            .in_("ticket_id", [str(tid) for tid in ticket_ids])
+            .eq("action_type", "status_changed")
+            .order("created_at", desc=False)
+            .execute()
+        )
+        return response.data or []
+
     async def get_latest_for_ticket(self, ticket_id: UUID, limit: int = 5) -> list[dict]:
         """Get the most recent activities for a ticket.
 

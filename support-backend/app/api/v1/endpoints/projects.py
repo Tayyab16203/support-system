@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from app.dependencies import get_admin_user, get_current_user
+from app.dependencies import get_admin_user, get_client_ip, get_current_user
 from app.schemas.common import build_pagination
 from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.services.project_service import ProjectService
@@ -20,10 +20,17 @@ async def list_projects(
     is_public: Optional[bool] = None,
     user: dict = Depends(get_current_user),
 ) -> dict:
-    """List all projects (any authenticated user)."""
+    """List projects.
+
+    Admins see all projects; non-admins only see public ones (private
+    projects are hidden from them regardless of the ``is_public`` filter).
+    """
     service = ProjectService()
     projects, total = await service.list_projects(
-        page=page, page_size=page_size, is_public=is_public
+        page=page,
+        page_size=page_size,
+        is_public=is_public,
+        is_admin=user.get("role") == "admin",
     )
     return {
         "data": projects,
@@ -35,10 +42,13 @@ async def list_projects(
 async def create_project(
     payload: ProjectCreate,
     user: dict = Depends(get_admin_user),
+    ip_address: Optional[str] = Depends(get_client_ip),
 ) -> dict:
     """Create a new project (admin only)."""
     service = ProjectService()
-    project = await service.create_project(payload)
+    project = await service.create_project(
+        payload, actor_id=UUID(str(user["id"])), ip_address=ip_address
+    )
     return {"data": project, "message": "Project created"}
 
 
@@ -47,9 +57,15 @@ async def get_project(
     project_id: UUID,
     user: dict = Depends(get_current_user),
 ) -> dict:
-    """Get project by ID."""
+    """Get project by ID.
+
+    A non-admin requesting a private project gets a not-found response, so
+    private projects stay hidden from regular users.
+    """
     service = ProjectService()
-    project = await service.get_project(project_id)
+    project = await service.get_project(
+        project_id, is_admin=user.get("role") == "admin"
+    )
     return {"data": project, "message": "Success"}
 
 
@@ -72,10 +88,13 @@ async def update_project(
     project_id: UUID,
     payload: ProjectUpdate,
     user: dict = Depends(get_admin_user),
+    ip_address: Optional[str] = Depends(get_client_ip),
 ) -> dict:
     """Update a project (admin only)."""
     service = ProjectService()
-    project = await service.update_project(project_id, payload)
+    project = await service.update_project(
+        project_id, payload, actor_id=UUID(str(user["id"])), ip_address=ip_address
+    )
     return {"data": project, "message": "Project updated"}
 
 
@@ -83,8 +102,11 @@ async def update_project(
 async def delete_project(
     project_id: UUID,
     user: dict = Depends(get_admin_user),
+    ip_address: Optional[str] = Depends(get_client_ip),
 ) -> None:
     """Delete a project (admin only)."""
     service = ProjectService()
-    await service.delete_project(project_id)
+    await service.delete_project(
+        project_id, actor_id=UUID(str(user["id"])), ip_address=ip_address
+    )
     return None
