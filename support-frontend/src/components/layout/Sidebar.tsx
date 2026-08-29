@@ -8,6 +8,7 @@ import {
   FolderOpen,
   BarChart3,
   Users,
+  ScrollText,
 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { ProjectSelector } from "@/components/layout/ProjectSelector";
@@ -25,6 +26,7 @@ const navItems: NavItem[] = [
   { href: "/tickets", label: "Tickets", icon: Ticket },
   { href: "/admin/projects", label: "Projects", icon: FolderOpen, adminOnly: true },
   { href: "/admin/users", label: "Users", icon: Users, adminOnly: true },
+  { href: "/admin/audit", label: "Audit Log", icon: ScrollText, adminOnly: true },
   { href: "/insights", label: "Public Insights", icon: BarChart3 },
 ];
 

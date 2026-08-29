@@ -1,10 +1,11 @@
 """File upload endpoints for S3 presigned URLs and attachments."""
 
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from app.dependencies import get_current_user
+from app.dependencies import get_client_ip, get_current_user
 from app.schemas.upload import PresignedUrlRequest, UploadConfirm
 from app.services.upload_service import UploadService
 
@@ -31,6 +32,7 @@ async def get_presigned_upload_url(
 async def confirm_upload(
     payload: UploadConfirm,
     user: dict = Depends(get_current_user),
+    ip_address: Optional[str] = Depends(get_client_ip),
 ) -> dict:
     """Confirm upload completion and create the attachment record."""
     service = UploadService()
@@ -41,6 +43,7 @@ async def confirm_upload(
         content_type=payload.content_type,
         file_size=payload.file_size,
         user_id=user["id"],
+        ip_address=ip_address,
     )
     return {"data": attachment, "message": "Upload confirmed"}
 
@@ -60,8 +63,9 @@ async def list_attachments(
 async def delete_attachment(
     attachment_id: UUID,
     user: dict = Depends(get_current_user),
+    ip_address: Optional[str] = Depends(get_client_ip),
 ) -> None:
     """Delete an attachment (uploader or admin only)."""
     service = UploadService()
-    await service.delete_attachment(attachment_id, user=user)
+    await service.delete_attachment(attachment_id, user=user, ip_address=ip_address)
     return None

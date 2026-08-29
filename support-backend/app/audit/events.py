@@ -19,3 +19,12 @@ class AuditEvents:
     BULK_STATUS_CHANGE = "bulk.status_changed"
     BULK_ASSIGN = "bulk.assigned"
     BULK_DELETE = "bulk.deleted"
+
+
+class ResourceTypes:
+    """Constants for audit resource types."""
+
+    TICKET = "ticket"
+    PROJECT = "project"
+    USER = "user"
+    ATTACHMENT = "attachment"

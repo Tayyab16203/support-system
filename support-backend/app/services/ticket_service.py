@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import BackgroundTasks
 
+from app.audit import AuditEvents, ResourceTypes, audit_logger
 from app.core.exceptions import ForbiddenError, TicketNotFoundError
 from app.core.logging import get_logger
 from app.db.repositories.ticket_repo import TicketRepo
@@ -39,6 +40,7 @@ class TicketService:
         user_id: UUID,
         project_id: UUID,
         background_tasks: Optional[BackgroundTasks] = None,
+        ip_address: Optional[str] = None,
     ) -> dict:
         """Create a new ticket in the given project.
 
@@ -82,6 +84,19 @@ class TicketService:
                     "priority": created.get("priority"),
                     "status": created.get("status"),
                 },
+            )
+            await audit_logger.log(
+                actor_id=user_id,
+                action=AuditEvents.TICKET_CREATED,
+                resource_type=ResourceTypes.TICKET,
+                resource_id=UUID(str(ticket_id)),
+                project_id=project_id,
+                metadata={
+                    "title": created.get("title"),
+                    "type": created.get("type"),
+                    "priority": created.get("priority"),
+                },
+                ip_address=ip_address,
             )
 
         # Notify admins that a new ticket exists; if it was created already
@@ -190,6 +205,7 @@ class TicketService:
         user: dict,
         project_id: UUID,
         background_tasks: Optional[BackgroundTasks] = None,
+        ip_address: Optional[str] = None,
     ) -> dict:
         """Update a ticket (partial), scoped to the current project.
 
@@ -266,6 +282,31 @@ class TicketService:
             existing=existing,
             update_data=update_data,
             background_tasks=background_tasks,
+        )
+
+        # Audit the mutation. A status transition is recorded as a dedicated
+        # status-change event; otherwise it is a generic update event. The
+        # changed fields (old→new) are captured in the audit metadata.
+        changed_fields = {
+            field: {"old": existing.get(field), "new": value}
+            for field, value in update_data.items()
+            if existing.get(field) != value
+        }
+        status_changed = "status" in update_data and existing.get(
+            "status"
+        ) != update_data.get("status")
+        await audit_logger.log(
+            actor_id=user_id,
+            action=(
+                AuditEvents.TICKET_STATUS_CHANGED
+                if status_changed
+                else AuditEvents.TICKET_UPDATED
+            ),
+            resource_type=ResourceTypes.TICKET,
+            resource_id=ticket_id,
+            project_id=project_id,
+            metadata={"changes": changed_fields},
+            ip_address=ip_address,
         )
 
         return await self.get_by_id(ticket_id, project_id)
@@ -403,7 +444,11 @@ class TicketService:
             )
 
     async def delete(
-        self, ticket_id: UUID, user: dict, project_id: UUID
+        self,
+        ticket_id: UUID,
+        user: dict,
+        project_id: UUID,
+        ip_address: Optional[str] = None,
     ) -> None:
         """Delete a ticket, scoped to the current project.
 
@@ -436,4 +481,13 @@ class TicketService:
             extra={
                 "resource": {"ticket_id": str(ticket_id), "project_id": str(project_id)}
             },
+        )
+        await audit_logger.log(
+            actor_id=UUID(str(user.get("id"))),
+            action=AuditEvents.TICKET_DELETED,
+            resource_type=ResourceTypes.TICKET,
+            resource_id=ticket_id,
+            project_id=project_id,
+            metadata={"title": existing.get("title")},
+            ip_address=ip_address,
         )

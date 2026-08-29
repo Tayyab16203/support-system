@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    audit,
     auth,
     bulk,
     dashboard,
@@ -23,3 +24,4 @@ api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(bulk.router, prefix="/tickets/bulk", tags=["bulk"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(audit.router, prefix="/admin/audit", tags=["admin-audit"])

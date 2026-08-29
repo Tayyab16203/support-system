@@ -1,5 +1,6 @@
 """File upload service for S3 operations and attachment records."""
 
+from typing import Optional
 from uuid import UUID, uuid4
 
 from app.core.exceptions import (
@@ -8,6 +9,7 @@ from app.core.exceptions import (
     TicketNotFoundError,
     ValidationError,
 )
+from app.audit import AuditEvents, ResourceTypes, audit_logger
 from app.core.logging import get_logger
 from app.db.repositories.attachment_repo import AttachmentRepo
 from app.db.repositories.ticket_repo import TicketRepo
@@ -113,6 +115,7 @@ class UploadService:
         content_type: str,
         file_size: int,
         user_id: UUID,
+        ip_address: Optional[str] = None,
     ) -> dict:
         """Persist an attachment record after a successful S3 upload.
 
@@ -128,7 +131,7 @@ class UploadService:
             The created attachment record, including a fresh download URL.
         """
         self._validate_file(content_type, file_size)
-        await self._get_ticket_or_404(ticket_id)
+        ticket = await self._get_ticket_or_404(ticket_id)
 
         # Guard against a key that doesn't belong to this ticket.
         if not s3_key.split("/")[1:2] == [str(ticket_id)]:
@@ -161,6 +164,23 @@ class UploadService:
             },
         )
 
+        attachment_id = record.get("id")
+        project_id = ticket.get("project_id")
+        await audit_logger.log(
+            actor_id=user_id,
+            action=AuditEvents.FILE_UPLOADED,
+            resource_type=ResourceTypes.ATTACHMENT,
+            resource_id=UUID(str(attachment_id)) if attachment_id else ticket_id,
+            project_id=UUID(str(project_id)) if project_id else None,
+            metadata={
+                "ticket_id": str(ticket_id),
+                "file_name": file_name,
+                "content_type": content_type,
+                "file_size": file_size,
+            },
+            ip_address=ip_address,
+        )
+
         record["download_url"] = await s3_client.generate_presigned_download_url(
             s3_key
         )
@@ -182,7 +202,9 @@ class UploadService:
             )
         return attachments
 
-    async def delete_attachment(self, attachment_id: UUID, user: dict) -> None:
+    async def delete_attachment(
+        self, attachment_id: UUID, user: dict, ip_address: Optional[str] = None
+    ) -> None:
         """Delete an attachment from S3 and the database.
 
         Only the uploader or an admin may delete an attachment.
@@ -224,3 +246,22 @@ class UploadService:
                     "file_name": attachment.get("file_name"),
                 },
             )
+
+        # Resolve the owning project for audit context (best-effort).
+        project_id = None
+        if ticket_id:
+            ticket = await self.ticket_repo.get_by_id(UUID(str(ticket_id)))
+            if ticket:
+                project_id = ticket.get("project_id")
+        await audit_logger.log(
+            actor_id=UUID(str(user["id"])),
+            action=AuditEvents.FILE_DELETED,
+            resource_type=ResourceTypes.ATTACHMENT,
+            resource_id=attachment_id,
+            project_id=UUID(str(project_id)) if project_id else None,
+            metadata={
+                "ticket_id": str(ticket_id) if ticket_id else None,
+                "file_name": attachment.get("file_name"),
+            },
+            ip_address=ip_address,
+        )

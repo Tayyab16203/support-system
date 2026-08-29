@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
-from app.dependencies import get_current_project, get_current_user
+from app.dependencies import get_client_ip, get_current_project, get_current_user
 from app.schemas.activity import CommentCreate
 from app.schemas.common import build_pagination
 from app.schemas.ticket import TicketCreate, TicketUpdate
@@ -59,6 +59,7 @@ async def create_ticket(
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
     project_id: UUID = Depends(get_current_project),
+    ip_address: Optional[str] = Depends(get_client_ip),
 ) -> dict:
     """Create a new ticket in the current project.
 
@@ -71,6 +72,7 @@ async def create_ticket(
         user_id=user["id"],
         project_id=project_id,
         background_tasks=background_tasks,
+        ip_address=ip_address,
     )
     return {"data": ticket, "message": "Ticket created"}
 
@@ -94,6 +96,7 @@ async def update_ticket(
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
     project_id: UUID = Depends(get_current_project),
+    ip_address: Optional[str] = Depends(get_client_ip),
 ) -> dict:
     """Update a ticket (partial update, scoped to the current project).
 
@@ -107,6 +110,7 @@ async def update_ticket(
         user=user,
         project_id=project_id,
         background_tasks=background_tasks,
+        ip_address=ip_address,
     )
     return {"data": ticket, "message": "Ticket updated"}
 
@@ -116,10 +120,13 @@ async def delete_ticket(
     ticket_id: UUID,
     user: dict = Depends(get_current_user),
     project_id: UUID = Depends(get_current_project),
+    ip_address: Optional[str] = Depends(get_client_ip),
 ) -> None:
     """Delete a ticket (creator or admin only, scoped to the current project)."""
     service = TicketService()
-    await service.delete(ticket_id, user=user, project_id=project_id)
+    await service.delete(
+        ticket_id, user=user, project_id=project_id, ip_address=ip_address
+    )
     return None
 
 

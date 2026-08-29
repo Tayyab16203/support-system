@@ -3,6 +3,7 @@
 from typing import Any, Optional
 from uuid import UUID
 
+from app.audit import AuditEvents, ResourceTypes, audit_logger
 from app.core.logging import get_logger
 from app.db.repositories.ticket_repo import TicketRepo
 from app.db.repositories.user_repo import UserRepo
@@ -57,6 +58,7 @@ class BulkService:
         new_status: str,
         user_id: UUID,
         project_id: UUID,
+        ip_address: Optional[str] = None,
     ) -> dict[str, Any]:
         """Change the status of multiple tickets within the current project.
 
@@ -120,6 +122,20 @@ class BulkService:
                 }
             },
         )
+        await audit_logger.log(
+            actor_id=user_id,
+            action=AuditEvents.BULK_STATUS_CHANGE,
+            resource_type=ResourceTypes.TICKET,
+            resource_id=project_id,
+            project_id=project_id,
+            metadata={
+                "new_status": new_status,
+                "ticket_ids": successes,
+                "success_count": len(successes),
+                "failure_count": len(failures),
+            },
+            ip_address=ip_address,
+        )
         return self._summary(successes, failures)
 
     async def bulk_assign(
@@ -128,6 +144,7 @@ class BulkService:
         assignee_id: UUID,
         user_id: UUID,
         project_id: UUID,
+        ip_address: Optional[str] = None,
     ) -> dict[str, Any]:
         """Assign multiple tickets to a single user within the current project.
 
@@ -212,10 +229,28 @@ class BulkService:
                 }
             },
         )
+        await audit_logger.log(
+            actor_id=user_id,
+            action=AuditEvents.BULK_ASSIGN,
+            resource_type=ResourceTypes.TICKET,
+            resource_id=project_id,
+            project_id=project_id,
+            metadata={
+                "assignee_id": str(assignee_id),
+                "ticket_ids": successes,
+                "success_count": len(successes),
+                "failure_count": len(failures),
+            },
+            ip_address=ip_address,
+        )
         return self._summary(successes, failures)
 
     async def bulk_delete(
-        self, ticket_ids: list[UUID], user_id: UUID, project_id: UUID
+        self,
+        ticket_ids: list[UUID],
+        user_id: UUID,
+        project_id: UUID,
+        ip_address: Optional[str] = None,
     ) -> dict[str, Any]:
         """Delete multiple tickets within the current project (admin-only).
 
@@ -268,6 +303,19 @@ class BulkService:
                     "failure_count": len(failures),
                 }
             },
+        )
+        await audit_logger.log(
+            actor_id=user_id,
+            action=AuditEvents.BULK_DELETE,
+            resource_type=ResourceTypes.TICKET,
+            resource_id=project_id,
+            project_id=project_id,
+            metadata={
+                "ticket_ids": successes,
+                "success_count": len(successes),
+                "failure_count": len(failures),
+            },
+            ip_address=ip_address,
         )
         return self._summary(successes, failures)
 
