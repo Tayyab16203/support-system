@@ -2,17 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUpdateTicket } from "@/hooks/useTickets";
 import { useAssignableUsers } from "@/hooks/useUsers";
+import { PriorityBadge } from "@/components/ui/Badge";
 import type { TicketSortField } from "@/lib/ticketsApi";
-import { formatDateTime, formatStatus } from "@/lib/utils";
-import type {
-  Priority,
-  Ticket,
-  TicketStatus,
-  TicketType,
-} from "@/types/ticket";
+import { cn, formatDateTime, formatStatus } from "@/lib/utils";
+import type { Ticket, TicketStatus, TicketType } from "@/types/ticket";
 
 interface TicketTableProps {
   tickets: Ticket[];
@@ -59,24 +56,18 @@ function SelectCheckbox({
       aria-label={ariaLabel}
       checked={checked}
       onChange={(e) => onChange(e.target.checked)}
-      className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+      className="h-4 w-4 cursor-pointer rounded border-input text-primary focus:ring-ring/50"
     />
   );
 }
 
-const STATUS_STYLES: Record<TicketStatus, string> = {
-  pending: "bg-gray-100 text-gray-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  paused: "bg-yellow-100 text-yellow-700",
-  in_review: "bg-purple-100 text-purple-700",
-  completed: "bg-green-100 text-green-700",
-};
-
-const PRIORITY_STYLES: Record<Priority, string> = {
-  critical: "bg-red-100 text-red-700",
-  high: "bg-orange-100 text-orange-700",
-  medium: "bg-blue-100 text-blue-700",
-  low: "bg-gray-100 text-gray-600",
+/** Tint the inline status <select> to match the status badge tones. */
+const STATUS_SELECT_STYLES: Record<TicketStatus, string> = {
+  pending: "bg-surface-muted text-muted-foreground",
+  in_progress: "bg-info-soft text-info",
+  paused: "bg-warning-soft text-warning",
+  in_review: "bg-primary-soft text-primary-soft-foreground",
+  completed: "bg-success-soft text-success",
 };
 
 const STATUS_VALUES: TicketStatus[] = [
@@ -110,10 +101,26 @@ const COLUMNS: ColumnDef[] = [
   { label: "Actions", align: "right" },
 ];
 
-function SortIndicator({ active, order }: { active: boolean; order: "asc" | "desc" }) {
-  if (!active) return <span className="text-gray-300"> ↕</span>;
-  return <span> {order === "asc" ? "↑" : "↓"}</span>;
+function SortIndicator({
+  active,
+  order,
+}: {
+  active: boolean;
+  order: "asc" | "desc";
+}) {
+  if (!active)
+    return (
+      <ChevronsUpDown className="ml-1 inline h-3.5 w-3.5 text-muted-foreground/50" />
+    );
+  return order === "asc" ? (
+    <ArrowUp className="ml-1 inline h-3.5 w-3.5" />
+  ) : (
+    <ArrowDown className="ml-1 inline h-3.5 w-3.5" />
+  );
 }
+
+const inlineSelectBase =
+  "rounded-md border border-input bg-surface px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-50";
 
 export function TicketTable({
   tickets,
@@ -167,8 +174,8 @@ export function TicketTable({
   }
 
   return (
-    <table className="w-full text-sm">
-      <thead className="border-b bg-gray-50">
+    <table className="w-full min-w-[820px] text-sm">
+      <thead className="border-b bg-surface-muted">
         <tr>
           <th className="w-10 px-4 py-3 text-left">
             <SelectCheckbox
@@ -181,18 +188,22 @@ export function TicketTable({
           {COLUMNS.map((col) => (
             <th
               key={col.label}
-              className={`px-4 py-3 font-medium text-gray-600 ${
+              className={cn(
+                "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
                 col.align === "right" ? "text-right" : "text-left"
-              }`}
+              )}
             >
               {col.field ? (
                 <button
                   type="button"
                   onClick={() => onSort(col.field as TicketSortField)}
-                  className="font-medium text-gray-600 hover:text-gray-900"
+                  className="font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {col.label}
-                  <SortIndicator active={sortBy === col.field} order={sortOrder} />
+                  <SortIndicator
+                    active={sortBy === col.field}
+                    order={sortOrder}
+                  />
                 </button>
               ) : (
                 col.label
@@ -208,9 +219,10 @@ export function TicketTable({
             <tr
               key={ticket.id}
               onClick={() => router.push(`/tickets/${ticket.id}`)}
-              className={`cursor-pointer hover:bg-gray-50 ${
-                selectedIds.has(ticket.id) ? "bg-blue-50" : ""
-              }`}
+              className={cn(
+                "cursor-pointer transition-colors hover:bg-surface-muted/60",
+                selectedIds.has(ticket.id) && "bg-primary-soft/50"
+              )}
             >
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <SelectCheckbox
@@ -220,7 +232,9 @@ export function TicketTable({
                 />
               </td>
               <td className="px-4 py-3">
-                <span className="font-medium text-blue-600">{ticket.title}</span>
+                <span className="font-medium text-foreground">
+                  {ticket.title}
+                </span>
               </td>
               {/* Inline type editing (available to all users). */}
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -230,7 +244,7 @@ export function TicketTable({
                   onChange={(e) =>
                     handleTypeChange(ticket, e.target.value as TicketType)
                   }
-                  className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                  className={inlineSelectBase}
                 >
                   {TYPE_VALUES.map((t) => (
                     <option key={t} value={t}>
@@ -240,11 +254,7 @@ export function TicketTable({
                 </select>
               </td>
               <td className="px-4 py-3">
-                <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_STYLES[ticket.priority]}`}
-                >
-                  {formatStatus(ticket.priority)}
-                </span>
+                <PriorityBadge priority={ticket.priority} />
               </td>
               {/* Inline status editing (available to all users). */}
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -254,7 +264,10 @@ export function TicketTable({
                   onChange={(e) =>
                     handleStatusChange(ticket, e.target.value as TicketStatus)
                   }
-                  className={`rounded-full border-0 px-2 py-0.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 ${STATUS_STYLES[ticket.status]}`}
+                  className={cn(
+                    "rounded-full border-0 px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50",
+                    STATUS_SELECT_STYLES[ticket.status]
+                  )}
                 >
                   {STATUS_VALUES.map((s) => (
                     <option key={s} value={s}>
@@ -269,8 +282,10 @@ export function TicketTable({
                   <select
                     value={ticket.assigned_to ?? ""}
                     disabled={rowPending || usersLoading}
-                    onChange={(e) => handleAssigneeChange(ticket, e.target.value)}
-                    className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                    onChange={(e) =>
+                      handleAssigneeChange(ticket, e.target.value)
+                    }
+                    className={inlineSelectBase}
                   >
                     <option value="">Unassigned</option>
                     {(assignableUsers ?? []).map((u) => (
@@ -280,12 +295,12 @@ export function TicketTable({
                     ))}
                   </select>
                 ) : (
-                  <span className="text-gray-600">
+                  <span className="text-muted-foreground">
                     {ticket.assigned_to_user?.name ?? "Unassigned"}
                   </span>
                 )}
               </td>
-              <td className="px-4 py-3 text-gray-500">
+              <td className="px-4 py-3 text-muted-foreground">
                 {formatDateTime(ticket.created_at)}
               </td>
               <td
@@ -294,13 +309,13 @@ export function TicketTable({
               >
                 <button
                   onClick={() => router.push(`/tickets/${ticket.id}/edit`)}
-                  className="mr-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+                  className="mr-3 text-sm font-medium text-primary hover:text-primary-hover"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => onDelete(ticket)}
-                  className="text-sm font-medium text-red-600 hover:text-red-700"
+                  className="text-sm font-medium text-danger hover:text-danger/80"
                 >
                   Delete
                 </button>

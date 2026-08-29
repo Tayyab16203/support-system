@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { TicketForm, type TicketFormValues } from "@/components/tickets/TicketForm";
+import { FolderOpen } from "lucide-react";
+import {
+  TicketForm,
+  type TicketFormValues,
+} from "@/components/tickets/TicketForm";
 import { useCreateTicket } from "@/hooks/useTickets";
 import { uploadFile } from "@/lib/uploadsApi";
 import { useProjectContext } from "@/providers/ProjectProvider";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 function errorMessage(err: unknown): string {
   return err && typeof err === "object" && "message" in err
@@ -64,8 +69,10 @@ export default function NewTicketPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Create Ticket</h1>
-        <p className="text-sm text-gray-600">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Create ticket
+        </h1>
+        <p className="text-sm text-muted-foreground">
           {selectedProject
             ? `New ticket in ${selectedProject.name}.`
             : "Select a project to create a ticket."}
@@ -73,9 +80,11 @@ export default function NewTicketPage() {
       </div>
 
       {!projectsLoading && !selectedProject ? (
-        <div className="rounded-lg border bg-white p-8 text-center text-gray-500">
-          No project selected. Choose a project from the sidebar first.
-        </div>
+        <EmptyState
+          icon={FolderOpen}
+          title="No project selected"
+          description="Choose a project from the sidebar before creating a ticket."
+        />
       ) : (
         <TicketForm
           onSubmit={handleSubmit}

@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import {
   useDeleteSavedFilter,
   useSaveFilter,
   useSavedFilters,
 } from "@/hooks/useSearch";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import type { SavedFilter, SavedFilterValues } from "@/types/search";
 
 interface SavedFiltersProps {
@@ -70,36 +73,27 @@ export function SavedFilters({ currentFilters, onApply }: SavedFiltersProps) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-surface px-3 text-sm font-medium text-foreground shadow-soft hover:bg-surface-muted"
         aria-haspopup="true"
         aria-expanded={open}
       >
         Saved filters
         {filters.length > 0 && (
-          <span className="rounded-full bg-gray-100 px-1.5 text-xs text-gray-600">
+          <span className="rounded-full bg-surface-muted px-1.5 text-xs text-muted-foreground">
             {filters.length}
           </span>
         )}
-        <svg
-          className="h-4 w-4 text-gray-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          stroke="currentColor"
-          aria-hidden="true"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-        </svg>
+        <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border bg-white p-3 shadow-lg">
+        <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border bg-surface p-3 shadow-popover">
           <div className="mb-3">
-            <label className="mb-1 block text-xs font-medium text-gray-500">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Save current filters
             </label>
             <div className="flex gap-2">
-              <input
+              <Input
                 type="text"
                 value={name}
                 maxLength={50}
@@ -108,23 +102,22 @@ export function SavedFilters({ currentFilters, onApply }: SavedFiltersProps) {
                   if (e.key === "Enter") void handleSave();
                 }}
                 placeholder="Filter name"
-                className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="flex-1"
               />
-              <button
-                type="button"
+              <Button
+                size="sm"
                 onClick={handleSave}
                 disabled={
                   !name.trim() ||
                   !hasValues(currentFilters) ||
                   saveFilter.isPending
                 }
-                className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
               >
                 Save
-              </button>
+              </Button>
             </div>
             {!hasValues(currentFilters) && (
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Set at least one filter to save.
               </p>
             )}
@@ -132,9 +125,11 @@ export function SavedFilters({ currentFilters, onApply }: SavedFiltersProps) {
 
           <div className="border-t pt-2">
             {isLoading ? (
-              <p className="py-2 text-center text-sm text-gray-400">Loading...</p>
+              <p className="py-2 text-center text-sm text-muted-foreground">
+                Loading...
+              </p>
             ) : filters.length === 0 ? (
-              <p className="py-2 text-center text-sm text-gray-400">
+              <p className="py-2 text-center text-sm text-muted-foreground">
                 No saved filters yet.
               </p>
             ) : (
@@ -142,12 +137,12 @@ export function SavedFilters({ currentFilters, onApply }: SavedFiltersProps) {
                 {filters.map((filter) => (
                   <li
                     key={filter.id}
-                    className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-gray-50"
+                    className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-surface-muted"
                   >
                     <button
                       type="button"
                       onClick={() => handleApply(filter)}
-                      className="flex-1 truncate text-left text-sm text-gray-700"
+                      className="flex-1 truncate text-left text-sm text-foreground"
                     >
                       {filter.name}
                     </button>
@@ -156,22 +151,9 @@ export function SavedFilters({ currentFilters, onApply }: SavedFiltersProps) {
                       onClick={() => handleDelete(filter.id)}
                       disabled={deleteFilter.isPending}
                       aria-label={`Delete ${filter.name}`}
-                      className="ml-2 rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                      className="ml-2 rounded p-1 text-muted-foreground hover:bg-danger-soft hover:text-danger disabled:opacity-40"
                     >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="m14.74 9-.35 9m-4.78 0L9.26 9M4.5 5.79l14.74.001M8.6 5.79V4.2a1.2 1.2 0 0 1 1.2-1.2h4.4a1.2 1.2 0 0 1 1.2 1.2v1.59"
-                        />
-                      </svg>
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </li>
                 ))}

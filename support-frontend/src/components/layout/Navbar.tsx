@@ -1,10 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
-export function Navbar() {
+interface NavbarProps {
+  onMenuClick: () => void;
+}
+
+export function Navbar({ onMenuClick }: NavbarProps) {
   const router = useRouter();
   const { profile, logout } = useAuth();
 
@@ -21,36 +27,38 @@ export function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-10 bg-white border-b">
-      <div className="flex items-center justify-between h-16 px-6">
-        <h1 className="text-lg font-semibold text-gray-900 lg:hidden">
-          Support System
-        </h1>
-        <div className="ml-auto flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-700">{profile?.name ?? "User"}</span>
+    <header className="sticky top-0 z-30 border-b bg-surface/80 backdrop-blur-md">
+      <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+        <button
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-foreground lg:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <div className="ml-auto flex items-center gap-3">
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className="text-sm font-medium text-foreground">
+              {profile?.name ?? "User"}
+            </span>
             {profile?.role && (
-              <span
-                className={
-                  profile.role === "admin"
-                    ? "rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700"
-                    : "rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-                }
-              >
+              <Badge tone={profile.role === "admin" ? "primary" : "neutral"}>
                 {profile.role === "admin" ? "Admin" : "User"}
-              </span>
+              </Badge>
             )}
           </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600">
-            <span className="text-xs font-medium text-white">{initials}</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-soft">
+            {initials}
           </div>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleLogout}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            leftIcon={<LogOut className="h-4 w-4" />}
           >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
+            <span className="hidden sm:inline">Logout</span>
+          </Button>
         </div>
       </div>
     </header>

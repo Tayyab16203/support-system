@@ -47,6 +47,7 @@ export function useSaveFilter() {
       name: string;
       filters: SavedFilterValues;
     }) => saveFilter(name, filters),
+    meta: { entity: "Filter", successMessage: "Filter saved" },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["saved-filters"] });
     },
@@ -56,6 +57,7 @@ export function useSaveFilter() {
 export function useDeleteSavedFilter() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { entity: "Filter", action: "delete" },
     mutationFn: (filterId: string) => deleteSavedFilter(filterId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["saved-filters"] });

@@ -50,10 +50,11 @@ export function DateRangePicker({
   const activePreset = presets.find(
     (p) => value.from === daysAgoIso(p.days) && value.to === todayIso()
   );
+  const hasRange = Boolean(value.from || value.to);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
+      <div className="inline-flex rounded-lg border bg-surface p-0.5 shadow-soft">
         {presets.map((preset) => (
           <button
             key={preset.label}
@@ -62,25 +63,34 @@ export function DateRangePicker({
             className={cn(
               "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               activePreset?.label === preset.label
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-surface-muted"
             )}
           >
             {preset.label}
           </button>
         ))}
+        {hasRange && (
+          <button
+            type="button"
+            onClick={() => onChange({ from: "", to: "" })}
+            className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-muted"
+          >
+            All time
+          </button>
+        )}
       </div>
 
-      <div className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1 shadow-sm">
+      <div className="inline-flex items-center gap-1.5 rounded-lg border bg-surface px-2 py-1 shadow-soft">
         <input
           type="date"
           aria-label="Start date"
           value={value.from}
           max={value.to || todayIso()}
           onChange={(e) => onChange({ ...value, from: e.target.value })}
-          className="bg-transparent text-sm text-gray-700 focus:outline-none"
+          className="bg-transparent text-sm text-foreground focus:outline-none"
         />
-        <span className="text-gray-400">→</span>
+        <span className="text-muted-foreground">→</span>
         <input
           type="date"
           aria-label="End date"
@@ -88,7 +98,7 @@ export function DateRangePicker({
           min={value.from || undefined}
           max={todayIso()}
           onChange={(e) => onChange({ ...value, to: e.target.value })}
-          className="bg-transparent text-sm text-gray-700 focus:outline-none"
+          className="bg-transparent text-sm text-foreground focus:outline-none"
         />
       </div>
     </div>

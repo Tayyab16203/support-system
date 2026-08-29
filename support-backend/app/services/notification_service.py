@@ -25,6 +25,7 @@ from typing import Optional
 from uuid import UUID
 
 from app.core.logging import get_logger
+from app.core.mentions import parse_mention_emails
 from app.db.repositories.project_repo import ProjectRepo
 from app.db.repositories.ticket_repo import TicketRepo
 from app.db.repositories.user_repo import UserRepo
@@ -48,7 +49,13 @@ class NotificationService:
     async def notify_ticket_created(
         self, ticket_id: UUID, actor_id: UUID
     ) -> None:
-        """Email all admins that a new ticket was created."""
+        """Email admins about the new ticket and confirm receipt to the owner.
+
+        Admins get an alert (minus the actor). The ticket owner (creator) also
+        gets a confirmation that their ticket was received, including its
+        current status and assignee — the first of the running updates they
+        receive for the lifetime of the ticket.
+        """
         ticket = await self._load_ticket(ticket_id)
         if ticket is None or not await self._project_email_enabled(ticket):
             return
@@ -62,9 +69,98 @@ class NotificationService:
             actor_name=actor_name,
         )
 
+        # Confirm to the owner that their ticket was received.
+        assignee = ticket.get("assigned_to_user") or {}
+        owner_email = await self._notify_owner(
+            ticket,
+            email_templates.owner_ticket_created_email(
+                ticket_id=str(ticket_id),
+                ticket_title=ticket.get("title", "your ticket"),
+                ticket_type=str(ticket.get("type", "")),
+                priority=str(ticket.get("priority", "")),
+                status=str(ticket.get("status", "")),
+                assignee_name=assignee.get("name"),
+            ),
+            ticket_id,
+            "created_owner",
+        )
+
+        # Alert admins (the owner already got their own confirmation above, so
+        # exclude them from the admin broadcast to avoid a duplicate).
         admins = await self.user_repo.list_admins()
-        recipients = self._eligible_recipients(admins, exclude_actor=actor_id)
+        exclude = {owner_email} if owner_email else set()
+        recipients = [
+            u
+            for u in self._eligible_recipients(admins, exclude_actor=actor_id)
+            if (u.get("email") or "").strip().lower() not in exclude
+        ]
         await self._broadcast(recipients, email, ticket_id, "created")
+
+    async def notify_ticket_updated(
+        self,
+        ticket_id: UUID,
+        changes: dict[str, dict],
+        actor_id: UUID,
+    ) -> None:
+        """Email the owner (and other stakeholders) about field changes.
+
+        Covers edits that are not already delivered by a dedicated template
+        (status/assignment/completion): title, description, type, priority,
+        and tags. ``changes`` maps each changed field to ``{"old", "new"}``.
+        The owner is always notified — even when they made the change.
+        """
+        if not changes:
+            return
+
+        ticket = await self._load_ticket(ticket_id)
+        if ticket is None or not await self._project_email_enabled(ticket):
+            return
+
+        actor_name = await self._resolve_name(actor_id)
+        email = email_templates.ticket_updated_email(
+            ticket_id=str(ticket_id),
+            ticket_title=ticket.get("title", "your ticket"),
+            changes=changes,
+            actor_name=actor_name,
+        )
+
+        owner_email = await self._notify_owner(ticket, email, ticket_id, "updated")
+        exclude = {owner_email} if owner_email else None
+        recipients = self._stakeholders(
+            ticket, exclude_actor=actor_id, exclude_emails=exclude
+        )
+        await self._broadcast(recipients, email, ticket_id, "updated")
+
+    async def notify_owner_assignee_changed(
+        self,
+        ticket_id: UUID,
+        old_assignee_name: Optional[str],
+        new_assignee_name: Optional[str],
+        actor_id: UUID,
+    ) -> None:
+        """Tell the owner who their ticket is now assigned to (or unassigned).
+
+        The new assignee gets their own dedicated "assigned to you" email via
+        :meth:`notify_ticket_assigned`; this keeps the *owner* informed of the
+        change too, using readable names. Only the owner is emailed here.
+        """
+        ticket = await self._load_ticket(ticket_id)
+        if ticket is None or not await self._project_email_enabled(ticket):
+            return
+
+        actor_name = await self._resolve_name(actor_id)
+        email = email_templates.ticket_updated_email(
+            ticket_id=str(ticket_id),
+            ticket_title=ticket.get("title", "your ticket"),
+            changes={
+                "assignee": {
+                    "old": old_assignee_name or "Unassigned",
+                    "new": new_assignee_name or "Unassigned",
+                }
+            },
+            actor_name=actor_name,
+        )
+        await self._notify_owner(ticket, email, ticket_id, "assignee_changed")
 
     async def notify_status_changed(
         self,
@@ -95,7 +191,16 @@ class NotificationService:
             actor_name=actor_name,
         )
 
-        recipients = self._stakeholders(ticket, exclude_actor=actor_id)
+        # The owner is always notified about their ticket (even if they made
+        # the change); other stakeholders are notified minus the actor and
+        # minus the owner (already emailed) to avoid duplicates.
+        owner_email = await self._notify_owner(
+            ticket, email, ticket_id, "status_changed"
+        )
+        exclude = {owner_email} if owner_email else None
+        recipients = self._stakeholders(
+            ticket, exclude_actor=actor_id, exclude_emails=exclude
+        )
         await self._broadcast(recipients, email, ticket_id, "status_changed")
 
     async def notify_ticket_completed(
@@ -113,7 +218,12 @@ class NotificationService:
             actor_name=actor_name,
         )
 
-        recipients = self._stakeholders(ticket, exclude_actor=actor_id)
+        # Owner always hears about completion of their own ticket.
+        owner_email = await self._notify_owner(ticket, email, ticket_id, "completed")
+        exclude = {owner_email} if owner_email else None
+        recipients = self._stakeholders(
+            ticket, exclude_actor=actor_id, exclude_emails=exclude
+        )
         await self._broadcast(recipients, email, ticket_id, "completed")
 
     async def notify_ticket_assigned(
@@ -143,21 +253,143 @@ class NotificationService:
         )
         await self._send(recipient, email, ticket_id, "assigned")
 
+    async def notify_comment_added(
+        self, ticket_id: UUID, actor_id: UUID, comment: str
+    ) -> None:
+        """Email stakeholders and @mentioned users when a comment is posted.
+
+        Recipients:
+          * anyone @mentioned in the comment body (by email) gets a dedicated
+            "you were mentioned" email — minus the commenter themselves;
+          * the ticket creator and assignee get a generic "new comment" email,
+            minus the commenter and minus anyone already emailed as a mention
+            (so a mentioned stakeholder is not emailed twice).
+
+        Like every handler here this is best-effort and honors both the
+        project kill switch and each recipient's unsubscribe flag.
+        """
+        ticket = await self._load_ticket(ticket_id)
+        if ticket is None or not await self._project_email_enabled(ticket):
+            return
+
+        actor_name = await self._resolve_name(actor_id)
+        ticket_title = ticket.get("title", "a ticket")
+
+        # 1) Mentioned users first, so we can exclude them from the generic
+        #    stakeholder broadcast below and avoid duplicate emails.
+        mentioned_emails = await self._notify_mentioned(
+            ticket_id=ticket_id,
+            ticket_title=ticket_title,
+            comment=comment,
+            actor_id=actor_id,
+            actor_name=actor_name,
+        )
+
+        # 2) Creator + assignee (minus the commenter, minus mentioned people).
+        email = email_templates.comment_added_email(
+            ticket_id=str(ticket_id),
+            ticket_title=ticket_title,
+            comment=comment,
+            actor_name=actor_name,
+        )
+        recipients = self._stakeholders(
+            ticket, exclude_actor=actor_id, exclude_emails=mentioned_emails or None
+        )
+        await self._broadcast(recipients, email, ticket_id, "comment")
+
+    async def _notify_mentioned(
+        self,
+        ticket_id: UUID,
+        ticket_title: str,
+        comment: str,
+        actor_id: UUID,
+        actor_name: Optional[str],
+    ) -> set[str]:
+        """Email each @mentioned user with the dedicated mention template.
+
+        Parses ``@email`` tokens out of the comment, resolves them to users,
+        drops the commenter and opted-out users, and sends one mention email
+        each. Returns the set of lowercased emails that were notified so the
+        caller can skip them in the general stakeholder broadcast.
+        """
+        emails = parse_mention_emails(comment)
+        if not emails:
+            return set()
+
+        users = await self.user_repo.list_by_emails(emails)
+        recipients = self._eligible_recipients(users, exclude_actor=actor_id)
+        notified: set[str] = set()
+        for user in recipients:
+            recipient = (user.get("email") or "").strip()
+            if not recipient:
+                continue
+            email = email_templates.comment_mention_email(
+                ticket_id=str(ticket_id),
+                ticket_title=ticket_title,
+                comment=comment,
+                mentioned_name=user.get("name") or "there",
+                actor_name=actor_name,
+            )
+            await self._send(recipient, email, ticket_id, "comment_mention")
+            notified.add(recipient.lower())
+        return notified
+
     # -- recipient resolution ----------------------------------------------
 
-    def _stakeholders(self, ticket: dict, exclude_actor: UUID) -> list[dict]:
+    async def _notify_owner(
+        self,
+        ticket: dict,
+        email: RenderedEmail,
+        ticket_id: UUID,
+        event: str,
+    ) -> Optional[str]:
+        """Send an email to the ticket's owner (creator), even if they acted.
+
+        The owner (``created_by``) is always kept in the loop on their own
+        ticket — unlike stakeholders, they are NOT excluded when they are the
+        actor. Their per-user unsubscribe (``email_notifications``) is still
+        honored; the project kill switch is checked by the calling handler.
+
+        Returns the owner's lowercased email when a send was attempted, so the
+        caller can exclude it from any follow-up stakeholder broadcast and
+        avoid a duplicate email.
+        """
+        owner = ticket.get("created_by_user")
+        if not owner:
+            return None
+        recipient = (owner.get("email") or "").strip()
+        if not recipient or not self._user_allows(owner):
+            return None
+        await self._send(recipient, email, ticket_id, event)
+        return recipient.lower()
+
+    def _stakeholders(
+        self,
+        ticket: dict,
+        exclude_actor: UUID,
+        exclude_emails: Optional[set[str]] = None,
+    ) -> list[dict]:
         """Collect the creator + assignee user records, minus the actor.
 
         Uses the nested relations already embedded on the ticket
         (``created_by_user`` / ``assigned_to_user``), so no extra queries.
+        ``exclude_emails`` (lowercased) drops recipients already emailed
+        elsewhere (e.g. the owner via :meth:`_notify_owner`).
         """
         candidates: list[Optional[dict]] = [
             ticket.get("created_by_user"),
             ticket.get("assigned_to_user"),
         ]
-        return self._eligible_recipients(
+        eligible = self._eligible_recipients(
             [c for c in candidates if c], exclude_actor=exclude_actor
         )
+        if exclude_emails:
+            eligible = [
+                u
+                for u in eligible
+                if (u.get("email") or "").strip().lower() not in exclude_emails
+            ]
+        return eligible
 
     def _eligible_recipients(
         self, users: list[dict], exclude_actor: UUID

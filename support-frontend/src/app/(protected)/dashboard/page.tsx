@@ -4,8 +4,10 @@ import {
   CheckCircle2,
   Clock,
   FilePlus2,
+  Filter,
   Inbox,
   Target,
+  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AvgTimeChart } from "@/components/charts/AvgTimeChart";
@@ -18,6 +20,9 @@ import { TrendKPICard } from "@/components/charts/TrendKPICard";
 import { VelocityChart } from "@/components/charts/VelocityChart";
 import { useInsights } from "@/hooks/useDashboard";
 import { useProjects } from "@/hooks/useProjects";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Select } from "@/components/ui/Input";
 import { formatStatus } from "@/lib/utils";
 
 export default function DashboardPage() {
@@ -36,40 +41,99 @@ export default function DashboardPage() {
     [projectId, range.from, range.to]
   );
 
-  const { data, isLoading, isError, refetch, isFetching } = useInsights(filters);
+  const { data, isLoading, isError, refetch, isFetching } =
+    useInsights(filters);
 
   const summary = data?.summary;
   const velocity = data?.velocity;
   const topType = data?.top_types?.[0];
 
+  const hasFilters = Boolean(projectId || range.from || range.to);
+  const activeProjectName =
+    projects.find((p) => p.id === projectId)?.name ?? null;
+
+  function clearFilters() {
+    setProjectId("");
+    setRange({ from: "", to: "" });
+  }
+
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-            My Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Your personal activity: tickets you created, work assigned to you,
-            and what you have completed.
-          </p>
+      <header className="space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              My Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your personal activity: tickets you created, work assigned to you,
+              and what you have completed.
+            </p>
+          </div>
+
+          {isFetching && !isLoading && (
+            <span className="inline-flex items-center gap-2 self-start rounded-full border bg-surface px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+              Updating…
+            </span>
+          )}
         </div>
 
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-          <select
-            aria-label="Project filter"
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="">All projects</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <DateRangePicker value={range} onChange={setRange} />
+        {/* Filter bar */}
+        <div className="rounded-xl border bg-surface p-3 shadow-soft">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">
+                  Filters
+                </span>
+              </div>
+              <Select
+                aria-label="Project filter"
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="w-full sm:w-52"
+              >
+                <option value="">All projects</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+              <DateRangePicker value={range} onChange={setRange} />
+            </div>
+
+            {hasFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                leftIcon={<X className="h-4 w-4" />}
+                className="self-start lg:self-auto"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+
+          {hasFilters && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
+              {activeProjectName && (
+                <FilterChip
+                  label={`Project: ${activeProjectName}`}
+                  onRemove={() => setProjectId("")}
+                />
+              )}
+              {(range.from || range.to) && (
+                <FilterChip
+                  label={`Dates: ${range.from || "…"} → ${range.to || "today"}`}
+                  onRemove={() => setRange({ from: "", to: "" })}
+                />
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -131,6 +195,28 @@ export default function DashboardPage() {
   );
 }
 
+interface FilterChipProps {
+  label: string;
+  onRemove: () => void;
+}
+
+/** A removable pill summarizing one active dashboard filter. */
+function FilterChip({ label, onRemove }: FilterChipProps) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary-soft-foreground">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${label}`}
+        className="rounded-full p-0.5 hover:bg-primary/10"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+
 interface TopTypesCardProps {
   data: { type: string; count: number; percentage: number }[];
   highlight: string | null;
@@ -141,39 +227,39 @@ function TopTypesCard({ data, highlight }: TopTypesCardProps) {
   const rows = data.filter((d) => d.count > 0);
 
   return (
-    <div className="rounded-lg border bg-white p-6 shadow-sm">
-      <h2 className="text-sm font-semibold text-gray-700">
+    <Card className="p-6">
+      <h2 className="text-sm font-semibold text-foreground">
         My Tickets by Type
       </h2>
       {rows.length === 0 ? (
-        <p className="mt-4 flex h-60 items-center justify-center text-sm text-gray-400">
+        <p className="mt-4 flex h-60 items-center justify-center text-sm text-muted-foreground">
           No tickets for this range.
         </p>
       ) : (
         <ul className="mt-4 space-y-4">
           {rows.map((row) => (
             <li key={row.type} className="flex items-center gap-4">
-              <span className="w-32 shrink-0 text-sm font-medium text-gray-700">
+              <span className="w-32 shrink-0 text-sm font-medium text-foreground">
                 {formatStatus(row.type)}
               </span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-muted">
                 <div
                   className={
                     row.type === highlight
-                      ? "h-full rounded-full bg-blue-600"
-                      : "h-full rounded-full bg-blue-300"
+                      ? "h-full rounded-full bg-primary"
+                      : "h-full rounded-full bg-primary/40"
                   }
                   style={{ width: `${row.percentage}%` }}
                 />
               </div>
-              <span className="w-24 shrink-0 text-right text-sm text-gray-500">
+              <span className="w-24 shrink-0 text-right text-sm text-muted-foreground">
                 {row.count} · {row.percentage}%
               </span>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -184,7 +270,7 @@ function LoadingState() {
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className="h-28 animate-pulse rounded-xl border bg-white shadow-sm"
+            className="h-28 animate-pulse rounded-xl border bg-surface shadow-soft"
           />
         ))}
       </div>
@@ -192,7 +278,7 @@ function LoadingState() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-80 animate-pulse rounded-lg border bg-white shadow-sm"
+            className="h-80 animate-pulse rounded-xl border bg-surface shadow-soft"
           />
         ))}
       </div>
@@ -206,17 +292,15 @@ interface ErrorStateProps {
 
 function ErrorState({ onRetry }: ErrorStateProps) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
-      <p className="text-sm font-medium text-red-700">
+    <div className="rounded-xl border border-danger/30 bg-danger-soft p-8 text-center">
+      <p className="text-sm font-medium text-danger">
         Unable to load your dashboard.
       </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-      >
-        Retry
-      </button>
+      <div className="mt-4 flex justify-center">
+        <Button variant="danger" onClick={onRetry}>
+          Retry
+        </Button>
+      </div>
     </div>
   );
 }

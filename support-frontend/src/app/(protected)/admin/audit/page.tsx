@@ -1,8 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { ScrollText } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAuditLogs } from "@/hooks/useAudit";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { FormField, Select } from "@/components/ui/Input";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { formatDateTime } from "@/lib/utils";
 import type { AuditLog, AuditLogFilters } from "@/types/audit";
 
@@ -33,18 +39,21 @@ const RESOURCE_OPTIONS: { value: string; label: string }[] = [
   { value: "user", label: "User" },
 ];
 
+type BadgeTone =
+  | "neutral"
+  | "primary"
+  | "success"
+  | "warning"
+  | "danger"
+  | "info";
+
 /** Color the action badge by the kind of action for quick scanning. */
-function actionBadgeClass(action: string): string {
-  if (action.includes("deleted")) {
-    return "bg-red-100 text-red-700";
-  }
-  if (action.includes("created") || action.includes("uploaded")) {
-    return "bg-green-100 text-green-700";
-  }
-  if (action.startsWith("bulk")) {
-    return "bg-amber-100 text-amber-700";
-  }
-  return "bg-blue-100 text-blue-700";
+function actionTone(action: string): BadgeTone {
+  if (action.includes("deleted")) return "danger";
+  if (action.includes("created") || action.includes("uploaded"))
+    return "success";
+  if (action.startsWith("bulk")) return "warning";
+  return "info";
 }
 
 /** Render a value in a compact, human-readable way. */
@@ -76,12 +85,12 @@ type ChangeEntry = { old?: unknown; new?: unknown };
 function ChangeRow({ field, change }: { field: string; change: ChangeEntry }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
-      <span className="font-medium text-gray-700">{humanizeKey(field)}:</span>
-      <span className="text-gray-400 line-through">
+      <span className="font-medium text-foreground">{humanizeKey(field)}:</span>
+      <span className="text-muted-foreground line-through">
         {formatValue(change.old)}
       </span>
-      <span className="text-gray-400">→</span>
-      <span className="text-gray-900">{formatValue(change.new)}</span>
+      <span className="text-muted-foreground">→</span>
+      <span className="text-foreground">{formatValue(change.new)}</span>
     </div>
   );
 }
@@ -98,7 +107,7 @@ function MetadataCell({ log }: { log: AuditLog }) {
     const changes = metadata.changes as Record<string, ChangeEntry>;
     const fields = Object.keys(changes);
     if (fields.length === 0) {
-      return <span className="text-gray-400">No changes</span>;
+      return <span className="text-muted-foreground">No changes</span>;
     }
     return (
       <div className="space-y-0.5 text-xs">
@@ -114,14 +123,16 @@ function MetadataCell({ log }: { log: AuditLog }) {
     ([, value]) => value !== null && value !== undefined && value !== ""
   );
   if (entries.length === 0) {
-    return <span className="text-gray-400">—</span>;
+    return <span className="text-muted-foreground">—</span>;
   }
   return (
     <div className="space-y-0.5 text-xs">
       {entries.map(([key, value]) => (
         <div key={key} className="flex flex-wrap items-center gap-1">
-          <span className="font-medium text-gray-700">{humanizeKey(key)}:</span>
-          <span className="text-gray-900">{formatValue(value)}</span>
+          <span className="font-medium text-foreground">
+            {humanizeKey(key)}:
+          </span>
+          <span className="text-foreground">{formatValue(value)}</span>
         </div>
       ))}
     </div>
@@ -150,9 +161,10 @@ export default function AdminAuditPage() {
   // Non-admins should never see this page (Sidebar hides it, but guard anyway).
   if (!authLoading && !isAdmin) {
     return (
-      <div className="rounded-lg border bg-white p-8 text-center text-gray-600">
-        You do not have permission to view this page.
-      </div>
+      <EmptyState
+        title="Access denied"
+        description="You do not have permission to view this page."
+      />
     );
   }
 
@@ -163,130 +175,116 @@ export default function AdminAuditPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Audit Log</h1>
-        <p className="text-sm text-gray-600">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Audit Log
+        </h1>
+        <p className="text-sm text-muted-foreground">
           A record of every create, update, and delete across tickets,
           projects, and files. Mirrored to AWS CloudWatch.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-white p-4">
-        <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
-          Action
-          <select
+      <div className="flex flex-wrap items-end gap-4 rounded-xl border bg-surface p-4 shadow-soft">
+        <FormField label="Action" className="min-w-[12rem]">
+          <Select
             value={filters.action ?? ""}
             onChange={(e) => updateFilter("action", e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {ACTION_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FormField>
 
-        <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
-          Resource
-          <select
+        <FormField label="Resource" className="min-w-[12rem]">
+          <Select
             value={filters.resource_type ?? ""}
             onChange={(e) => updateFilter("resource_type", e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {RESOURCE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FormField>
 
         {(filters.action || filters.resource_type) && (
-          <button
-            type="button"
+          <Button
+            variant="outline"
             onClick={() => {
               setFilters({});
               setPage(1);
             }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Clear filters
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-white">
-        {isLoading ? (
-          <div className="p-8 text-center text-gray-500">Loading audit log...</div>
-        ) : error ? (
-          <div className="p-8 text-center text-red-600">
-            Failed to load audit log.
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No audit entries match these filters.
-          </div>
-        ) : (
+      {isLoading ? (
+        <TableSkeleton rows={8} />
+      ) : error ? (
+        <EmptyState
+          icon={ScrollText}
+          title="Failed to load audit log"
+          description="Something went wrong. Please try again."
+        />
+      ) : logs.length === 0 ? (
+        <EmptyState
+          icon={ScrollText}
+          title="No audit entries"
+          description="No audit entries match these filters."
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border bg-surface shadow-soft">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b bg-gray-50">
+              <thead className="border-b bg-surface-muted">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">
-                    When
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">
-                    Actor
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">
-                    Action
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">
-                    Resource
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">
-                    IP
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">
-                    Details
-                  </th>
+                  <Th>When</Th>
+                  <Th>Actor</Th>
+                  <Th>Action</Th>
+                  <Th>Resource</Th>
+                  <Th>IP</Th>
+                  <Th>Details</Th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50 align-top">
-                    <td className="whitespace-nowrap px-4 py-3 text-gray-500">
+                  <tr
+                    key={log.id}
+                    className="align-top transition-colors hover:bg-surface-muted/60"
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                       {formatDateTime(log.created_at)}
                     </td>
                     <td className="px-4 py-3">
                       {log.actor ? (
                         <div>
-                          <div className="font-medium text-gray-900">
+                          <div className="font-medium text-foreground">
                             {log.actor.name}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             {log.actor.email}
                           </div>
                         </div>
                       ) : (
-                        <span className="text-gray-400">Unknown</span>
+                        <span className="text-muted-foreground">Unknown</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${actionBadgeClass(
-                          log.action
-                        )}`}
-                      >
-                        {log.action}
-                      </span>
+                      <Badge tone={actionTone(log.action)}>{log.action}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-muted-foreground">
                       <div className="capitalize">{log.resource_type}</div>
-                      <div className="font-mono text-[11px] text-gray-400">
+                      <div className="font-mono text-[11px] text-muted-foreground/70">
                         {log.resource_id}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-500">
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-muted-foreground">
                       {log.ip_address ?? "—"}
                     </td>
                     <td className="px-4 py-3">
@@ -297,34 +295,42 @@ export default function AdminAuditPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {pagination && pagination.total > 0 && (
-        <div className="flex items-center justify-between text-sm text-gray-600">
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
             Page {pagination.page} of {totalPages} · {pagination.total} entries
           </span>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="rounded-lg border border-gray-300 px-3 py-1 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Previous
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="rounded-lg border border-gray-300 px-3 py-1 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function Th({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </th>
   );
 }

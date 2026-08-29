@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 
 interface AuthGuardProps {
@@ -10,18 +10,21 @@ interface AuthGuardProps {
 
 /**
  * Client-side guard for protected routes. Redirects to /login when the user
- * is not authenticated. Shows a lightweight loading state while the session
- * is being resolved.
+ * is not authenticated, preserving the attempted path via ?from= so the user
+ * lands back where they wanted after signing in. Shows a lightweight loading
+ * state while the session is being resolved.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace("/login");
+      const from = encodeURIComponent(pathname || "/dashboard");
+      router.replace(`/login?from=${from}`);
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, router, pathname]);
 
   if (isLoading) {
     return (

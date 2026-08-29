@@ -3,6 +3,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useUpdateTicket } from "@/hooks/useTickets";
 import { useAssignableUsers } from "@/hooks/useUsers";
+import { Select } from "@/components/ui/Input";
 import { formatStatus } from "@/lib/utils";
 import type { Ticket } from "@/types/ticket";
 
@@ -24,7 +25,7 @@ export function AssigneeControl({ ticket }: AssigneeControlProps) {
   const currentName = ticket.assigned_to_user?.name ?? "Unassigned";
 
   if (!isAdmin) {
-    return <span className="text-sm text-gray-800">{currentName}</span>;
+    return <span className="text-sm text-foreground">{currentName}</span>;
   }
 
   async function handleChange(value: string) {
@@ -37,11 +38,11 @@ export function AssigneeControl({ ticket }: AssigneeControlProps) {
   }
 
   return (
-    <select
+    <Select
       value={ticket.assigned_to ?? ""}
       disabled={updateTicket.isPending || isLoading}
       onChange={(e) => handleChange(e.target.value)}
-      className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+      className="max-w-xs"
     >
       <option value="">Unassigned</option>
       {(users ?? []).map((u) => (
@@ -49,6 +50,6 @@ export function AssigneeControl({ ticket }: AssigneeControlProps) {
           {u.name} ({formatStatus(u.role)})
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
